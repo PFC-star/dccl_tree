@@ -1,6 +1,6 @@
 {
     "prefix": "reproduce",
-    "dataset": "cifar100",
+    "dataset": "cifar10",
     "memory_size": 2000,
     "memory_per_class": 20,
     "fixed_memory": false,
@@ -9,6 +9,6 @@
     "increment": 10,
     "model_name": "lwf",
     "convnet_type": "resnet32",
-    "device": ["0","1","2","3"],
-    "seed": [1993]
+    "device": ["0","1"],
+    "seed": [2024]
 }

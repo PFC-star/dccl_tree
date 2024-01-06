@@ -10,7 +10,7 @@ import torch
 from utils import factory
 from utils.data_manager import DataManager
 from utils.toolkit import ConfigEncoder, count_parameters, save_fc, save_model
-
+topk = 'top2'
 def train(args):
     seed_list = copy.deepcopy(args["seed"])
     device = copy.deepcopy(args["device"])
@@ -90,7 +90,7 @@ def _train(args):
     )
     model = factory.get_model(args["model_name"], args)
 
-    cnn_curve, nme_curve, no_nme = {"top1": [], "top5": []}, {"top1": [], "top5": []}, True
+    cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
     start_time = time.time()
     logging.info(f"Start time:{start_time}")
     
@@ -113,24 +113,24 @@ def _train(args):
             logging.info("NME: {}".format(nme_accy["grouped"]))
 
             cnn_curve["top1"].append(cnn_accy["top1"])
-            cnn_curve["top5"].append(cnn_accy["top5"])
+            cnn_curve[topk].append(cnn_accy[topk])
 
             nme_curve["top1"].append(nme_accy["top1"])
-            nme_curve["top5"].append(nme_accy["top5"])
+            nme_curve[topk].append(nme_accy[topk])
 
             logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
-            logging.info("CNN top5 curve: {}".format(cnn_curve["top5"]))
+            logging.info("CNN top5 curve: {}".format(cnn_curve[topk]))
             logging.info("NME top1 curve: {}".format(nme_curve["top1"]))
-            logging.info("NME top5 curve: {}\n".format(nme_curve["top5"]))
+            logging.info("NME top5 curve: {}\n".format(nme_curve[topk]))
         else:
             logging.info("No NME accuracy.")
             logging.info("CNN: {}".format(cnn_accy["grouped"]))
 
             cnn_curve["top1"].append(cnn_accy["top1"])
-            cnn_curve["top5"].append(cnn_accy["top5"])
+            cnn_curve[topk].append(cnn_accy[topk])
 
             logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
-            logging.info("CNN top5 curve: {}\n".format(cnn_curve["top5"]))
+            logging.info("CNN top5 curve: {}\n".format(cnn_curve[topk]))
     
     end_time = time.time()
     logging.info(f"End Time:{end_time}")
@@ -177,8 +177,8 @@ def save_time(args, cost_time):
         f.write(f"{args['time_str']},{args['model_name']}, {cost_time} \n")
 
 def save_results(args, cnn_curve, nme_curve, no_nme=False):
-    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve['top5']
-    nme_top1, nme_top5 = nme_curve["top1"], nme_curve['top5']
+    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
+    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
     
     #-------CNN TOP1----------
     _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")

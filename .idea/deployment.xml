@@ -6,7 +6,7 @@
       <paths name="root@10.214.131.230:31119 password (6)">
         <serverdata>
           <mappings>
-            <mapping deploy="/workspace/survey_pycl" local="$PROJECT_DIR$" />
+            <mapping deploy="/workspace/dccl_tree" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
