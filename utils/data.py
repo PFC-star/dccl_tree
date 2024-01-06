@@ -14,8 +14,8 @@ class iCIFAR10(iData):
     use_path = False
     train_trsf = [
         transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.ColorJitter(brightness=63 / 255),
+        # transforms.RandomHorizontalFlip(p=0.5),
+        # transforms.ColorJitter(brightness=63 / 255),
     ]
     test_trsf = []
     common_trsf = [
