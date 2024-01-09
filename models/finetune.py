@@ -11,13 +11,13 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-init_epoch = 200
+init_epoch = 1
 init_lr = 0.1
 init_milestones = [60, 120, 170]
 init_lr_decay = 0.1
 init_weight_decay = 0.0005
 
-epochs = 80
+epochs = 1
 lrate = 0.1
 milestones = [40, 70]
 lrate_decay = 0.1
@@ -49,12 +49,18 @@ class Finetune(BaseLearner):
             np.arange(self._known_classes, self._total_classes),
             source="train",
             mode="train",
+            domain_type=self.domain[self._cur_task],
+            domainTrans=self.domainTrans
         )
         self.train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
         )
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, self._total_classes), source="test",
+            mode="test",
+            domain_type=self.domain[self._cur_task],
+            domainTrans=self.domainTrans
+
         )
         self.test_loader = DataLoader(
             test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers

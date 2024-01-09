@@ -137,6 +137,7 @@ def _train(args):
     cost_time = end_time - start_time
     save_time(args, cost_time)
     save_results(args, cnn_curve, nme_curve, no_nme)
+    save_all_results(args, cnn_curve, nme_curve, no_nme,cost_time)
     if args['model_name'] not in ["podnet", "coil"]:
         save_fc(args, model)
     else:
@@ -190,7 +191,8 @@ def save_results(args, cnn_curve, nme_curve, no_nme=False):
             f.write(f"{args['time_str']},{args['model_name']},")
             for _acc in cnn_top1[:-1]:
                 f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]} \n")
+            f.write(f"{cnn_top1[-1]},")
+            f.write(f"{sum(cnn_top1)/len(cnn_top1)} \n")
     else:
         assert args['prefix'] in ['fair', 'auc']
         with open(_log_path, "a+") as f:
@@ -253,4 +255,87 @@ def save_results(args, cnn_curve, nme_curve, no_nme=False):
                 f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
                 for _acc in nme_top5[:-1]:
                     f.write(f"{_acc},")
-                f.write(f"{nme_top5[-1]} \n") 
+                f.write(f"{nme_top5[-1]} \n")
+
+
+def save_all_results(args, cnn_curve, nme_curve,cost_time ,no_nme=False):
+    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
+    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
+
+    # -------CNN TOP1----------
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
+    os.makedirs(_log_dir, exist_ok=True)
+
+    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
+    if args['prefix'] == 'benchmark':
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},")
+            for _acc in cnn_top1[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top1[-1]},")
+            f.write(f"{sum(cnn_top1) / len(cnn_top1)},")
+            for key, value in args.items():
+                f.write(f"{value}, ")
+            f.write(f"{cost_time}\n ")
+    else:
+        assert args['prefix'] in ['fair', 'auc']
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
+            for _acc in cnn_top1[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top1[-1]} \n")
+
+    # -------CNN TOP5----------
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top5")
+    os.makedirs(_log_dir, exist_ok=True)
+    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
+    if args['prefix'] == 'benchmark':
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},")
+            for _acc in cnn_top5[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top5[-1]} \n")
+    else:
+        assert args['prefix'] in ['auc', 'fair']
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
+            for _acc in cnn_top5[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top5[-1]} \n")
+
+    # -------NME TOP1----------
+    if no_nme is False:
+        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top1")
+        os.makedirs(_log_dir, exist_ok=True)
+        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
+        if args['prefix'] == 'benchmark':
+            with open(_log_path, "a+") as f:
+                f.write(f"{args['time_str']},{args['model_name']},")
+                for _acc in nme_top1[:-1]:
+                    f.write(f"{_acc},")
+                f.write(f"{nme_top1[-1]} \n")
+        else:
+            assert args['prefix'] in ['fair', 'auc']
+            with open(_log_path, "a+") as f:
+                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
+                for _acc in nme_top1[:-1]:
+                    f.write(f"{_acc},")
+                f.write(f"{nme_top1[-1]} \n")
+
+                # -------NME TOP5----------
+        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top5")
+        os.makedirs(_log_dir, exist_ok=True)
+        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
+        if args['prefix'] == 'benchmark':
+            with open(_log_path, "a+") as f:
+                f.write(f"{args['time_str']},{args['model_name']},")
+                for _acc in nme_top5[:-1]:
+                    f.write(f"{_acc},")
+                f.write(f"{nme_top5[-1]} \n")
+        else:
+            assert args['prefix'] in ['auc', 'fair']
+            with open(_log_path, "a+") as f:
+                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
+                for _acc in nme_top5[:-1]:
+                    f.write(f"{_acc},")
+                f.write(f"{nme_top5[-1]} \n")
