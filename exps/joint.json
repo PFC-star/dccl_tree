@@ -1,0 +1,14 @@
+{
+    "prefix": "reproduce",
+    "dataset": "cifar10",
+    "memory_size": 2000,
+    "memory_per_class": 20,
+    "fixed_memory": false,
+    "shuffle": true,
+    "init_cls": 2,
+    "increment": 2,
+    "model_name": "joint",
+    "convnet_type": "resnet32",
+    "device": ["0","1"],
+    "seed": [2024]
+}

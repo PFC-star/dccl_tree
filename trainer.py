@@ -135,13 +135,13 @@ def _train(args):
     end_time = time.time()
     logging.info(f"End Time:{end_time}")
     cost_time = end_time - start_time
-    save_time(args, cost_time)
-    save_results(args, cnn_curve, nme_curve, no_nme)
-    save_all_results(args, cnn_curve, nme_curve, no_nme,cost_time)
-    if args['model_name'] not in ["podnet", "coil"]:
-        save_fc(args, model)
-    else:
-        save_model(args, model)
+    # save_time(args, cost_time)
+    # save_results(args, cnn_curve, nme_curve, no_nme)
+    save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time)
+    # if args['model_name'] not in ["podnet", "coil"]:
+    #     save_fc(args, model)
+    # else:
+    #     save_model(args, model)
 
 def _set_device(args):
     device_type = args["device"]
@@ -276,7 +276,8 @@ def save_all_results(args, cnn_curve, nme_curve,cost_time ,no_nme=False):
             f.write(f"{sum(cnn_top1) / len(cnn_top1)},")
             for key, value in args.items():
                 f.write(f"{value}, ")
-            f.write(f"{cost_time}\n ")
+            f.write(f"{cost_time}, ")
+            f.write(f"{args['domainTrans']}\n ")
     else:
         assert args['prefix'] in ['fair', 'auc']
         with open(_log_path, "a+") as f:
