@@ -277,7 +277,7 @@ def save_all_results(args, cnn_curve, nme_curve,cost_time ,no_nme=False):
             for key, value in args.items():
                 f.write(f"{value}, ")
             f.write(f"{cost_time}, ")
-            f.write(f"{args['domainTrans']}\n ")
+            f.write(f"{args['domainTrans']} \n")
     else:
         assert args['prefix'] in ['fair', 'auc']
         with open(_log_path, "a+") as f:

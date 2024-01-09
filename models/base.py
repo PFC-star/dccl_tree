@@ -229,7 +229,10 @@ class BaseLearner(object):
 
             # Exemplar mean
             idx_dataset = data_manager.get_dataset(
-                [], source="train", mode="test", appendent=(dd, dt)
+                [], source="train", mode="test", appendent=(dd, dt),
+                domain_type=self.domain[self._cur_task],
+                domainTrans=self.domainTrans
+
             )
             idx_loader = DataLoader(
                 idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -249,6 +252,8 @@ class BaseLearner(object):
                 source="train",
                 mode="test",
                 ret_data=True,
+                domain_type=self.domain[self._cur_task],
+                domainTrans=self.domainTrans
             )
             idx_loader = DataLoader(
                 idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -304,6 +309,11 @@ class BaseLearner(object):
                 source="train",
                 mode="test",
                 appendent=(selected_exemplars, exemplar_targets),
+
+
+
+            domain_type = self.domain[self._cur_task],
+            domainTrans = self.domainTrans
             )
             idx_loader = DataLoader(
                 idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -330,7 +340,9 @@ class BaseLearner(object):
             )
 
             class_dset = data_manager.get_dataset(
-                [], source="train", mode="test", appendent=(class_data, class_targets)
+                [], source="train", mode="test", appendent=(class_data, class_targets),
+                domain_type=self.domain[self._cur_task],
+                domainTrans=self.domainTrans
             )
             class_loader = DataLoader(
                 class_dset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -349,6 +361,8 @@ class BaseLearner(object):
                 source="train",
                 mode="test",
                 ret_data=True,
+                domain_type=self.domain[self._cur_task],
+                domainTrans=self.domainTrans
             )
             class_loader = DataLoader(
                 class_dset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -401,6 +415,8 @@ class BaseLearner(object):
                 source="train",
                 mode="test",
                 appendent=(selected_exemplars, exemplar_targets),
+                domain_type=self.domain[self._cur_task],
+                domainTrans=self.domainTrans
             )
             exemplar_loader = DataLoader(
                 exemplar_dset, batch_size=batch_size, shuffle=False, num_workers=4

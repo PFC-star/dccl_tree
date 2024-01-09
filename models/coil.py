@@ -12,7 +12,7 @@ from utils.inc_net import (
     SimpleCosineIncrementalNet,
 )
 from utils.toolkit import target2onehot, tensor2numpy
-# import ot
+import ot
 from torch import nn
 import copy
 
@@ -134,12 +134,16 @@ class COIL(BaseLearner):
             source="train",
             mode="train",
             appendent=self._get_memory(),
+            domainTrans=self.domainTrans,
+            domain_type=self.domain[self._cur_task]
         )
         self.train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
         )
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, self._total_classes), source="test", mode="test",
+            domainTrans=self.domainTrans,
+            domain_type=self.domain[self._cur_task]
         )
         self.test_loader = DataLoader(
             test_dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -267,6 +271,8 @@ class COIL(BaseLearner):
                     source="train",
                     mode="test",
                     ret_data=True,
+                    domain_type=self.domain[self._cur_task],
+                    domainTrans=self.domainTrans,
                 )
                 idx_loader = DataLoader(
                     idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
