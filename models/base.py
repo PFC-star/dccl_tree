@@ -21,8 +21,20 @@ class BaseLearner(object):
         self._network = None
         self._old_network = None
         self._data_memory, self._targets_memory = np.array([]), np.array([])
-        self.topk = 2
-
+        # if args['topk']:
+        #     self.topk = args['topk']
+        # else:
+        self.topk=2
+        self.increment=args['increment']
+        self.domainTrans=args['domainTrans']
+        if self.domainTrans:
+            self.domain = ['ColorJitter',
+                           'RandomHorizontalFlip',
+                           'RandomVerticalFlip' ,
+                           'RandomRotation',
+                           'RandomGrayscale']
+        else:
+            self.domain=['None','None','None','None','None']
         self._memory_size = args["memory_size"]
         self._memory_per_class = args.get("memory_per_class", None)
         self._fixed_memory = args.get("fixed_memory", False)
@@ -78,7 +90,7 @@ class BaseLearner(object):
 
     def _evaluate(self, y_pred, y_true):
         ret = {}
-        grouped = accuracy(y_pred.T[0], y_true, self._known_classes)
+        grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment)
         ret["grouped"] = grouped
         ret["top1"] = grouped["total"]
         ret["top{}".format(self.topk)] = np.around(
@@ -97,7 +109,7 @@ class BaseLearner(object):
             nme_accy = self._evaluate(y_pred, y_true)
         else:
             nme_accy = None
-        
+
         if save_conf:
             _pred = y_pred.T[0]
             _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
@@ -110,7 +122,7 @@ class BaseLearner(object):
             _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
             with open(_save_path, "a+") as f:
                 f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
-        
+
         return cnn_accy, nme_accy
 
     def incremental_train(self):
@@ -143,13 +155,22 @@ class BaseLearner(object):
         y_pred, y_true = [], []
         for _, (_, inputs, targets) in enumerate(loader):
             inputs = inputs.to(self._device)
+            # print("------targets---------")
+            # print(targets)
             with torch.no_grad():
                 outputs = self._network(inputs)["logits"]
+            # print("------outputs---------")
+            # print(outputs.shape )
             predicts = torch.topk(
                 outputs, k=self.topk, dim=1, largest=True, sorted=True
             )[
                 1
             ]  # [bs, topk]
+            # print("------predicts---------")
+            # print(predicts.shape)
+            # print(torch.topk(
+            #     outputs, k=self.topk, dim=1, largest=True, sorted=True
+            # ))
             y_pred.append(predicts.cpu().numpy())
             y_true.append(targets.cpu().numpy())
 

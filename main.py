@@ -31,7 +31,7 @@ def setup_parser():
     parser.add_argument('--device','-d', nargs='+', type=int, default=[0,1])
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--skip', action="store_true",)
-    
+    parser.add_argument('--domainTrans','-dt',type=bool, default=False)
     return parser
 
 

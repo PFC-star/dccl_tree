@@ -52,12 +52,17 @@ class LwF(BaseLearner):
             np.arange(self._known_classes, self._total_classes),
             source="train",
             mode="train",
+            
+            domainTrans=self.domainTrans,
+            domain_type=self.domain[self._cur_task],
         )
         self.train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
         )
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, self._total_classes), source="test", mode="test",
+            domainTrans=self.domainTrans,
+            domain_type=self.domain[self._cur_task],
         )
         self.test_loader = DataLoader(
             test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
@@ -73,7 +78,7 @@ class LwF(BaseLearner):
         self._network.to(self._device)
         if self._old_network is not None:
             self._old_network.to(self._device)
-
+        print("domain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
                 self._network.parameters(),

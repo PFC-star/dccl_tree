@@ -99,7 +99,7 @@ def _train(args):
         logging.info(
             "Trainable params: {}".format(count_parameters(model._network, True))
         )
-        
+        # 这里每次传的数据集都是一样的，可以修改为不一样的
         model.incremental_train(data_manager)
         if task == data_manager.nb_tasks-1:
             cnn_accy, nme_accy = model.eval_task(save_conf=True)
@@ -158,9 +158,9 @@ def _set_device(args):
 
 
 def _set_random():
-    torch.manual_seed(1)
-    torch.cuda.manual_seed(1)
-    torch.cuda.manual_seed_all(1)
+    torch.manual_seed(2024)
+    torch.cuda.manual_seed(2024)
+    torch.cuda.manual_seed_all(2024)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
