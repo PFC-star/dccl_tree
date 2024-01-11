@@ -9,6 +9,9 @@ def main():
     param = load_json(args.config)
     args = vars(args)  # Converting argparse Namespace to a dict.
     param.update(args)
+    if param["debug"]==True:
+        param['epochs']=1
+        param['init_epoch']=1
     train(param)
 
 

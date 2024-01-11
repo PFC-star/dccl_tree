@@ -10,7 +10,7 @@
     "model_name": "foster",
     "convnet_type": "resnet32",
     "device": ["0","1"],
-    "seed": [1993],
+    "seed": [2024],
     "beta1":0.96,
     "beta2":0.97,
     "oofc":"ft",

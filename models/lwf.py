@@ -11,14 +11,14 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-init_epoch = 20
+init_epoch =50
 init_lr = 0.1
 init_milestones = [60, 120, 160]
 init_lr_decay = 0.1
 init_weight_decay = 0.0005
 
 
-epochs = 20
+epochs = 50
 lrate = 0.1
 milestones = [60, 120, 180, 220]
 lrate_decay = 0.1
@@ -43,7 +43,10 @@ class LwF(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
+        if self._cur_task != 0:
+            self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
+
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
@@ -169,11 +172,17 @@ class LwF(BaseLearner):
                 logits = self._network(inputs)["logits"]
 
                 fake_targets = targets - self._known_classes
+                # print("---------targets-------")
+                # print(targets)
+                # print("---------self._known_classes-------")
+                # print(self._known_classes)
+                # print("---------logits-------")
+                # print(logits.shape)
                 loss_clf = F.cross_entropy(
                     logits[:, self._known_classes :], fake_targets
                 )
                 loss_kd = _KD_loss(
-                    logits[:, : self._known_classes],
+                    logits[:, : self._known_classes+5],
                     self._old_network(inputs)["logits"],
                     T,
                 )

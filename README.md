@@ -206,7 +206,7 @@ We provide the visualizations of the confusion matrix and weight norm of classif
 There are three types of experiments in our survey, i.e., benchmark, memory-aligned (`fair`), and memory-agnostic (`auc`) in the `scripts` folder). We give all the scripts for running the experiments in this paper. For example, if you are interested in the benchmark comparison, please run the following command:
 
 ```bash
-bash ./scripts/benchmark/cifar_b0_5_finetune.sh
+bash ./scripts/benchmark/finetune_cifar10.sh
 ```
 
 Similarly, you can run the other scripts in the same way. 

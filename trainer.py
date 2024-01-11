@@ -10,6 +10,9 @@ import torch
 from utils import factory
 from utils.data_manager import DataManager
 from utils.toolkit import ConfigEncoder, count_parameters, save_fc, save_model
+import pandas as pd
+
+result = []
 topk = 'top2'
 def train(args):
     seed_list = copy.deepcopy(args["seed"])
@@ -93,8 +96,9 @@ def _train(args):
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
     start_time = time.time()
     logging.info(f"Start time:{start_time}")
-    
+
     for task in range(data_manager.nb_tasks):
+        subResult = []
         logging.info("All params: {}".format(count_parameters(model._network)))
         logging.info(
             "Trainable params: {}".format(count_parameters(model._network, True))
@@ -106,6 +110,7 @@ def _train(args):
             no_nme = True if nme_accy is None else False
         else:
             cnn_accy, nme_accy = model.eval_task(save_conf=False)
+
         model.after_task()
         
         if nme_accy is not None:
@@ -131,13 +136,14 @@ def _train(args):
 
             logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
             logging.info("CNN top5 curve: {}\n".format(cnn_curve[topk]))
-    
+
     end_time = time.time()
     logging.info(f"End Time:{end_time}")
     cost_time = end_time - start_time
     # save_time(args, cost_time)
     # save_results(args, cnn_curve, nme_curve, no_nme)
-    save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time)
+    if args["debug"]==False:
+        save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time,cnn_accy=cnn_accy)
     # if args['model_name'] not in ["podnet", "coil"]:
     #     save_fc(args, model)
     # else:
@@ -258,7 +264,7 @@ def save_results(args, cnn_curve, nme_curve, no_nme=False):
                 f.write(f"{nme_top5[-1]} \n")
 
 
-def save_all_results(args, cnn_curve, nme_curve,cost_time ,no_nme=False):
+def save_all_results(args, cnn_curve, nme_curve,cost_time ,cnn_acc,no_nme=False):
     cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
     nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
 
@@ -340,3 +346,34 @@ def save_all_results(args, cnn_curve, nme_curve,cost_time ,no_nme=False):
                 for _acc in nme_top5[:-1]:
                     f.write(f"{_acc},")
                 f.write(f"{nme_top5[-1]} \n")
+
+
+def save_all_results_excel(args, cnn_curve, nme_curve, cost_time, cnn_acc, no_nme=False):
+    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
+    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
+
+    # -------CNN TOP1----------
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
+    os.makedirs(_log_dir, exist_ok=True)
+
+    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
+    if args['prefix'] == 'benchmark':
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},")
+            for _acc in cnn_top1[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top1[-1]},")
+            f.write(f"{sum(cnn_top1) / len(cnn_top1)},")
+            for key, value in args.items():
+                f.write(f"{value}, ")
+            f.write(f"{cost_time}, ")
+            f.write(f"{args['domainTrans']} \n")
+    else:
+        assert args['prefix'] in ['fair', 'auc']
+        with open(_log_path, "a+") as f:
+            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
+            for _acc in cnn_top1[:-1]:
+                f.write(f"{_acc},")
+            f.write(f"{cnn_top1[-1]} \n")
+
+

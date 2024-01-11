@@ -18,7 +18,7 @@ import copy
 
 EPSILON = 1e-8
 
-epochs = 160
+epochs = 1
 lrate = 0.1
 milestones = [80, 120]
 lrate_decay = 0.1
@@ -120,7 +120,8 @@ class COIL(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
-
+        if self._cur_task != 0:
+            self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes, self.nextperiod_initialization)
         self.data_manager = data_manager
 
@@ -187,7 +188,7 @@ class COIL(BaseLearner):
                     old_logits = self._old_network(inputs)["logits"].detach()
                     hat_pai_k = F.softmax(old_logits / T, dim=1)
                     log_pai_k = F.log_softmax(
-                        logits[:, : self._known_classes] / T, dim=1
+                        logits[:, : self._known_classes+5] / T, dim=1
                     )
                     distill_loss = -torch.mean(torch.sum(hat_pai_k * log_pai_k, dim=1))
 
@@ -304,6 +305,8 @@ class COIL(BaseLearner):
                     appendent=(data, targets),
                     mode="test",
                     ret_data=True,
+                    domain_type=self.domain[self._cur_task],
+                    domainTrans=self.domainTrans,
                 )
                 idx_loader = DataLoader(
                     idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -320,6 +323,8 @@ class COIL(BaseLearner):
                     source="train",
                     mode="test",
                     ret_data=True,
+                    domain_type=self.domain[self._cur_task],
+                    domainTrans=self.domainTrans,
                 )
                 idx_loader = DataLoader(
                     idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4

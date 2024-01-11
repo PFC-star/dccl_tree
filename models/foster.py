@@ -14,7 +14,7 @@ from utils.toolkit import count_parameters, target2onehot, tensor2numpy
 
 EPSILON = 1e-8
 
-
+topk = 'top2'
 class FOSTER(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
@@ -42,6 +42,8 @@ class FOSTER(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
+        if self._cur_task != 0:
+            self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
         self._network_module_ptr = self._network
         logging.info(
@@ -64,6 +66,8 @@ class FOSTER(BaseLearner):
             source="train",
             mode="train",
             appendent=self._get_memory(),
+            domain_type=self.domain[self._cur_task],
+            domainTrans=self.domainTrans
         )
         self.train_loader = DataLoader(
             train_dataset,
@@ -73,7 +77,9 @@ class FOSTER(BaseLearner):
             pin_memory=True,
         )
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test"
+            np.arange(0, self._total_classes), source="test", mode="test",
+            domain_type=self.domain[self._cur_task],
+            domainTrans=self.domainTrans
         )
         self.test_loader = DataLoader(
             test_dataset,
@@ -240,7 +246,7 @@ class FOSTER(BaseLearner):
                 loss_clf = F.cross_entropy(logits / self.per_cls_weights, targets)
                 loss_fe = F.cross_entropy(fe_logits, targets)
                 loss_kd = self.lambda_okd * _KD_loss(
-                    logits[:, : self._known_classes], old_logits, self.args["T"]
+                    logits[:, : self._known_classes+5], old_logits, self.args["T"]
                 )
                 loss = loss_clf + loss_fe + loss_kd
                 optimizer.zero_grad()
@@ -391,7 +397,7 @@ class FOSTER(BaseLearner):
         cnn_accy = self._evaluate(y_pred, y_true)
         logging.info("darknet eval: ")
         logging.info("CNN top1 curve: {}".format(cnn_accy["top1"]))
-        logging.info("CNN top5 curve: {}".format(cnn_accy["top5"]))
+        logging.info("CNN top5 curve: {}".format(cnn_accy[topk]))
 
     @property
     def samples_old_class(self):

@@ -17,7 +17,7 @@ init_milestones = [60, 120, 170]
 init_lr_decay = 0.1
 init_weight_decay = 0.0005
 
-epochs = 1
+epochs =1
 lrate = 0.1
 milestones = [40, 70]
 lrate_decay = 0.1
@@ -40,10 +40,13 @@ class Finetune(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
+        if self._cur_task != 0:
+            self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
+
 
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
@@ -52,6 +55,7 @@ class Finetune(BaseLearner):
             domain_type=self.domain[self._cur_task],
             domainTrans=self.domainTrans
         )
+
         self.train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
         )
