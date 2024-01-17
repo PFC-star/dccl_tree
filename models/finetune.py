@@ -11,19 +11,7 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-init_epoch = 1
-init_lr = 0.1
-init_milestones = [60, 120, 170]
-init_lr_decay = 0.1
-init_weight_decay = 0.0005
 
-epochs =1
-lrate = 0.1
-milestones = [40, 70]
-lrate_decay = 0.1
-batch_size = 128 
-weight_decay = 2e-4
-num_workers = 8
 
 
 class Finetune(BaseLearner):
@@ -31,6 +19,19 @@ class Finetune(BaseLearner):
         super().__init__(args)
         self.args = args
         self._network = IncrementalNet(args["convnet_type"], False)
+        self.init_epoch = args['init_epoch']
+        self.init_lr = args['init_lr']
+        self.init_milestones = args['init_milestones']
+        self.init_lr_decay = args['init_lr_decay']
+        self.init_weight_decay = args['init_weight_decay']
+
+        self.epochs = args['epochs']
+        self.lrate = args['lrate']
+        self.milestones = args['milestones']
+        self.lrate_decay = args['lrate_decay']
+        self.batch_size = args['batch_size']
+        self.weight_decay = args['weight_decay']
+        self.num_workers = args['num_workers']
 
     def after_task(self):
         self._known_classes = self._total_classes
@@ -57,7 +58,7 @@ class Finetune(BaseLearner):
         )
 
         self.train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
+            train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers
         )
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test",
@@ -67,7 +68,7 @@ class Finetune(BaseLearner):
 
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+            test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers
         )
 
         if len(self._multiple_gpus) > 1:
@@ -82,15 +83,15 @@ class Finetune(BaseLearner):
             optimizer = optim.SGD(
                 self._network.parameters(),  
                 momentum=0.9,
-                lr=init_lr,
-                weight_decay=init_weight_decay,
+                lr=self.init_lr,
+                weight_decay=self.init_weight_decay,
             )
             # scheduler = optim.lr_scheduler.MultiStepLR(
             #     optimizer=optimizer, milestones=init_milestones, gamma=init_lr_decay
             # )
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 optimizer, 
-                T_max=init_epoch,
+                T_max=self.init_epoch,
             ) #check
 
             if self.args['skip']:
@@ -107,17 +108,17 @@ class Finetune(BaseLearner):
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),  
-                lr=lrate,
+                lr=self.lrate,
                 momentum=0.9,
-                weight_decay=weight_decay,
+                weight_decay=self.weight_decay,
             )  # 1e-5
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=milestones, gamma=lrate_decay
+                optimizer=optimizer, milestones=self.milestones, gamma=self.lrate_decay
             )
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(init_epoch))
+        prog_bar = tqdm(range(self.init_epoch))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -143,7 +144,7 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    init_epoch,
+                    self.init_epoch,
                     losses / len(train_loader),
                     train_acc,
                 )
@@ -152,7 +153,7 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    init_epoch,
+                    self.init_epoch,
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
@@ -167,7 +168,7 @@ class Finetune(BaseLearner):
 
     def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
 
-        prog_bar = tqdm(range(epochs))
+        prog_bar = tqdm(range(self.epochs))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -199,7 +200,7 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    epochs,
+                    self.epochs,
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
@@ -208,7 +209,7 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    epochs,
+                    self.epochs,
                     losses / len(train_loader),
                     train_acc,
                 )

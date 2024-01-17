@@ -96,6 +96,7 @@ def _train(args):
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
     start_time = time.time()
     logging.info(f"Start time:{start_time}")
+    cnn_acc_list =[]
 
     for task in range(data_manager.nb_tasks):
         subResult = []
@@ -106,13 +107,17 @@ def _train(args):
         # 这里每次传的数据集都是一样的，可以修改为不一样的
         model.incremental_train(data_manager)
         if task == data_manager.nb_tasks-1:
-            cnn_accy, nme_accy = model.eval_task(save_conf=True)
-            no_nme = True if nme_accy is None else False
+            cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager,save_conf=True)
+            # cnn_accy_dict = True if nme_accy_dict is None else False
+            no_nme = True if nme_accy_dict is None else False
         else:
-            cnn_accy, nme_accy = model.eval_task(save_conf=False)
-
+            cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager,save_conf=False)
+        cnn_acc_list.append(cnn_accy_dict)
+        print("task {}:".format(task))
+        print(cnn_accy_dict)
         model.after_task()
-        
+        cnn_accy = cnn_accy_dict['dataset ID {}:'.format(task)]
+        nme_accy = nme_accy_dict['dataset ID {}:'.format(task)]
         if nme_accy is not None:
             logging.info("CNN: {}".format(cnn_accy["grouped"]))
             logging.info("NME: {}".format(nme_accy["grouped"]))
@@ -142,8 +147,10 @@ def _train(args):
     cost_time = end_time - start_time
     # save_time(args, cost_time)
     # save_results(args, cnn_curve, nme_curve, no_nme)
-    if args["debug"]==False:
-        save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time,cnn_accy=cnn_accy)
+
+    # if args["debug"]==False:
+    # save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time,cnn_acc=cnn_accy)
+    save_allll_results(args=args,cnn_acc_list=cnn_acc_list,cost_time=cost_time,cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme)
     # if args['model_name'] not in ["podnet", "coil"]:
     #     save_fc(args, model)
     # else:
@@ -375,5 +382,53 @@ def save_all_results_excel(args, cnn_curve, nme_curve, cost_time, cnn_acc, no_nm
             for _acc in cnn_top1[:-1]:
                 f.write(f"{_acc},")
             f.write(f"{cnn_top1[-1]} \n")
+
+
+def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme):
+    # 解析cnn_acc_list,以最终的格式来排列
+    data = []
+    for taskDict in cnn_acc_list:
+        task_result = []
+        # cnn_acc_dict 为一个task对应的数据
+        for datasetID, datasetResult in taskDict.items():
+            #  v 为dataset ID 0对应的字典
+            acc_list = []
+            for acc in datasetResult['grouped'].items():
+                k, v = acc
+                if k == 'new' or k == 'old':
+                    continue
+
+                acc_list.append(v)
+
+            print(len(acc_list))
+            for i in range(20):
+                if (len(acc_list) <= 10):
+                    acc_list.append(None)
+                else:
+                    break
+            task_result.extend(acc_list)
+
+        data.append(task_result)
+    argsKeyList = []
+    argsValueList = []
+    for key, value in args.items():
+         argsKeyList.extend(["{}".format(key)])
+         argsValueList.extend(["{}".format(value)])
+    data.append(argsKeyList)
+    data.append(argsValueList)
+    df = pd.DataFrame(data)
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
+    os.makedirs(_log_dir, exist_ok=True)
+    if args['domainTrans']:
+        sheet_name = args['model_name'] + 'dt'
+    else:
+        sheet_name = args['model_name']
+    _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
+    writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
+
+    df.to_excel(writer, index=False, sheet_name=sheet_name)
+    writer.close()
+    print("sheet_name", sheet_name)
+
 
 

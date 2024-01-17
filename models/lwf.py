@@ -11,29 +11,14 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-init_epoch =50
-init_lr = 0.1
-init_milestones = [60, 120, 160]
-init_lr_decay = 0.1
-init_weight_decay = 0.0005
 
-
-epochs = 50
-lrate = 0.1
-milestones = [60, 120, 180, 220]
-lrate_decay = 0.1
-batch_size = 128
-weight_decay = 2e-4
-num_workers = 8
-T = 2
-lamda = 3
 
 
 class LwF(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
-
+        self.args = args
     def after_task(self):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
@@ -60,7 +45,7 @@ class LwF(BaseLearner):
             domain_type=self.domain[self._cur_task],
         )
         self.train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
+            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
         )
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test", mode="test",
@@ -68,7 +53,7 @@ class LwF(BaseLearner):
             domain_type=self.domain[self._cur_task],
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+            test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
         )
 
         if len(self._multiple_gpus) > 1:
@@ -86,11 +71,11 @@ class LwF(BaseLearner):
             optimizer = optim.SGD(
                 self._network.parameters(),
                 momentum=0.9,
-                lr=init_lr,
-                weight_decay=init_weight_decay,
+                lr=self.args['init_lr'],
+                weight_decay=self.args['init_weight_decay'],
             )
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=init_milestones, gamma=init_lr_decay
+                optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
             )
             if self.args['skip'] :
                 if len(self._multiple_gpus) > 1:
@@ -106,17 +91,17 @@ class LwF(BaseLearner):
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
-                lr=lrate,
+                lr=self.args['lrate'],
                 momentum=0.9,
-                weight_decay=weight_decay,
+                weight_decay=self.args['weight_decay'],
             )
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=milestones, gamma=lrate_decay
+                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
             )
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(init_epoch))
+        prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -142,7 +127,7 @@ class LwF(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    init_epoch,
+                    self.args['init_epoch'],
                     losses / len(train_loader),
                     train_acc,
                 )
@@ -151,7 +136,7 @@ class LwF(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    init_epoch,
+                    self.args['init_epoch'],
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
@@ -162,7 +147,7 @@ class LwF(BaseLearner):
 
     def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
 
-        prog_bar = tqdm(range(epochs))
+        prog_bar = tqdm(range(self.args['epochs']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -184,10 +169,10 @@ class LwF(BaseLearner):
                 loss_kd = _KD_loss(
                     logits[:, : self._known_classes+5],
                     self._old_network(inputs)["logits"],
-                    T,
+                    self.args['T'],
                 )
 
-                loss = lamda * loss_kd + loss_clf
+                loss = self.args['lamda'] * loss_kd + loss_clf
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -206,7 +191,7 @@ class LwF(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    epochs,
+                    self.args['epochs'],
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
@@ -215,7 +200,7 @@ class LwF(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    epochs,
+                    self.args['epochs'],
                     losses / len(train_loader),
                     train_acc,
                 )

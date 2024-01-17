@@ -100,30 +100,44 @@ class BaseLearner(object):
 
         return ret
 
-    def eval_task(self, save_conf=False):
-        y_pred, y_true = self._eval_cnn(self.test_loader)
-        cnn_accy = self._evaluate(y_pred, y_true)
+    def eval_task(self,data_manager,save_conf=False):
+        cnn_accy_dict={}
+        nme_accy_dict={}
+        for cur_task in range(self._cur_task+1):
+            test_dataset = data_manager.get_dataset(
+                np.arange(0, self._total_classes), source="test",
+                mode="test",
+                domain_type=self.domain[cur_task],
+                domainTrans=self.domainTrans
+            )
+            self.test_loader = DataLoader(
+                test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
+            )
+            y_pred, y_true = self._eval_cnn(self.test_loader)
 
-        if hasattr(self, "_class_means"):
-            y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
-            nme_accy = self._evaluate(y_pred, y_true)
-        else:
-            nme_accy = None
+            cnn_accy = self._evaluate(y_pred, y_true)
 
-        if save_conf:
-            _pred = y_pred.T[0]
-            _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
-            _target_path = os.path.join(self.args['logfilename'], "target.npy")
-            np.save(_pred_path, _pred)
-            np.save(_target_path, y_true)
+            if hasattr(self, "_class_means"):
+                y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
+                nme_accy = self._evaluate(y_pred, y_true)
+            else:
+                nme_accy = None
 
-            _save_dir = os.path.join(f"./results/conf_matrix/{self.args['prefix']}")
-            os.makedirs(_save_dir, exist_ok=True)
-            _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
-            with open(_save_path, "a+") as f:
-                f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
+            if save_conf:
+                _pred = y_pred.T[0]
+                _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
+                _target_path = os.path.join(self.args['logfilename'], "target.npy")
+                np.save(_pred_path, _pred)
+                np.save(_target_path, y_true)
 
-        return cnn_accy, nme_accy
+                _save_dir = os.path.join(f"./results/conf_matrix/{self.args['prefix']}")
+                os.makedirs(_save_dir, exist_ok=True)
+                _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
+                with open(_save_path, "a+") as f:
+                    f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
+            cnn_accy_dict.setdefault('dataset ID {}:'.format(cur_task), cnn_accy)
+            nme_accy_dict.setdefault('dataset ID {}:'.format(cur_task), nme_accy)
+        return cnn_accy_dict, nme_accy_dict
 
     def incremental_train(self):
         pass
