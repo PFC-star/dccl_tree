@@ -28,14 +28,20 @@ class LwF(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
-        if self._cur_task != 0:
-            self._known_classes = self._known_classes - 5
+        if self.args['scenario'] == 'dcl':
+            self._total_classes = 6
+            self._known_classes = 0
+        else:
+            if self._cur_task != 0:
+                self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
 
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
-
+        logging.info(
+            "domain:{} ".format(self.domain[self._cur_task])
+        )
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
             source="train",
@@ -161,16 +167,26 @@ class LwF(BaseLearner):
                 # print(targets)
                 # print("---------self._known_classes-------")
                 # print(self._known_classes)
-                # print("---------logits-------")
-                # print(logits.shape)
+                # print("---------logits[:, : self._known_classes + 6]-------")
+                # print(logits[:, : self._known_classes + 5].shape)
+                # print("---------self._old_network(inputs)[ logits]-------")
+                # print(self._old_network(inputs)["logits"].shape)
                 loss_clf = F.cross_entropy(
                     logits[:, self._known_classes :], fake_targets
                 )
-                loss_kd = _KD_loss(
-                    logits[:, : self._known_classes+5],
-                    self._old_network(inputs)["logits"],
-                    self.args['T'],
-                )
+                if self.args['scenario'] == 'dcl':
+                    loss_kd = _KD_loss(
+                        logits[:, : self._known_classes + 6],
+                        self._old_network(inputs)["logits"],
+                        self.args['T'],
+                    )
+                else:
+                    loss_kd = _KD_loss(
+                        logits[:, : self._known_classes+5 ],
+                        self._old_network(inputs)["logits"],
+                        self.args['T'],
+                    )
+
 
                 loss = self.args['lamda'] * loss_kd + loss_clf
 

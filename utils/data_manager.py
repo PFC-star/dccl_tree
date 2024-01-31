@@ -1,4 +1,6 @@
 import logging
+import random
+
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
@@ -44,35 +46,32 @@ class DataManager(object):
         # torch.manual_seed(1)  # 为CPU设置随机种子
         # random.seed(1)
 
-        if domainTrans:
-            if domain_type == "RandomHorizontalFlip":
-                domain_trsf = [
-                    transforms.RandomHorizontalFlip(p=1),#水平翻转
-                ]
-            elif domain_type == "ColorJitter":
-                domain_trsf = [
-                   transforms.ColorJitter(brightness=63 / 255),
-                ]
-            elif domain_type == "RandomRotation":
-                domain_trsf = [
-                    transforms.RandomRotation(90)
-                ]
-            elif domain_type == "RandomGrayscale":
-                domain_trsf = [
-                    transforms.RandomGrayscale(p=1.0)
-                ]
-            elif domain_type == "RandomVerticalFlip":
-                domain_trsf = [
-                    transforms.RandomVerticalFlip(p=1.0)
-                ]
-            else:
-                domain_trsf = [
-                     # 为空，不作修改
-                ]
-        else:
+         
+        if domain_type == "RandomHorizontalFlip":
             domain_trsf = [
-                # 为空，不作修改
+                transforms.RandomHorizontalFlip(p=1),#水平翻转
             ]
+        elif domain_type == "ColorJitter":
+            domain_trsf = [
+               transforms.ColorJitter(brightness=63 / 255),
+            ]
+        elif domain_type == "RandomRotation":
+            domain_trsf = [
+                transforms.RandomRotation(90)
+            ]
+        elif domain_type == "RandomGrayscale":
+            domain_trsf = [
+                transforms.RandomGrayscale(p=1.0)
+            ]
+        elif domain_type == "RandomVerticalFlip":
+            domain_trsf = [
+                transforms.RandomVerticalFlip(p=1.0)
+            ]
+        elif domain_type=='None':
+            domain_trsf = [
+                 # 为空，不作修改
+            ]
+
         if mode == "train":
             trsf = transforms.Compose([*self._train_trsf, *self._common_trsf,*domain_trsf])
         elif mode == "flip":
@@ -281,6 +280,35 @@ class DummyDataset(Dataset):
 
     def __getitem__(self, idx):
         torch.manual_seed(2024)
+        """trsf = [
+            transforms.RandomCrop(32, padding=4),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)
+            ),
+        ]
+        domain_type = random.choice(["RandomHorizontalFlip", "ColorJitter",'RandomRotation','RandomGrayscale','RandomVerticalFlip'])
+        if domain_type == "RandomHorizontalFlip":
+            domain_trsf = [
+                transforms.RandomHorizontalFlip(p=1),  # 水平翻转
+            ]
+        elif domain_type == "ColorJitter":
+            domain_trsf = [
+                transforms.ColorJitter(brightness=63 / 255),
+            ]
+        elif domain_type == "RandomRotation":
+            domain_trsf = [
+                transforms.RandomRotation(90)
+            ]
+        elif domain_type == "RandomGrayscale":
+            domain_trsf = [
+                transforms.RandomGrayscale(p=1.0)
+            ]
+        elif domain_type == "RandomVerticalFlip":
+            domain_trsf = [
+                transforms.RandomVerticalFlip(p=1.0)
+            ]
+        self.trsf = transforms.Compose([*trsf ,*domain_trsf])"""
         if self.use_path:
             image = self.trsf(pil_loader(self.images[idx]))
         else:

@@ -370,6 +370,7 @@ class DERNet(nn.Module):
         self.fc = None
         self.aux_fc = None
         self.task_sizes = []
+        self.bn_stats = {}
 
     @property
     def feature_dim(self):

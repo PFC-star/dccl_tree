@@ -8,10 +8,10 @@ from utils.toolkit import tensor2numpy, accuracy
 from scipy.spatial.distance import cdist
 import os
 
-EPSILON = 1e-8
-batch_size = 64
 
 
+from os.path import exists, join, realpath, split
+import os
 class BaseLearner(object):
     def __init__(self, args):
         self.args = args
@@ -28,13 +28,16 @@ class BaseLearner(object):
         self.increment=args['increment']
         self.domainTrans=args['domainTrans']
         if self.domainTrans:
-            self.domain = ['ColorJitter',
+            self.domain = [
                            'RandomHorizontalFlip',
+                            'ColorJitter',
+                            'RandomRotation',
+                            'RandomGrayscale',
                            'RandomVerticalFlip' ,
-                           'RandomRotation',
-                           'RandomGrayscale']
+
+                          ]
         else:
-            self.domain=['None','None','None','None','None']
+            self.domain=['RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip']
         self._memory_size = args["memory_size"]
         self._memory_per_class = args.get("memory_per_class", None)
         self._fixed_memory = args.get("fixed_memory", False)
@@ -99,6 +102,45 @@ class BaseLearner(object):
         )
 
         return ret
+    def loadBN(self, net, task):
+        """
+            Saves the running estimates of all batch norm layers for a given
+            task, in the net.bn_stats attribute.
+        """
+        bn_stats = torch.load('checkpoints/cifar10/derwdua/BN_stats.pt')
+        net.load_state_dict(bn_stats[task], strict=False)
+
+    def save_bn_stats_in_model(self, net, task):
+        """
+            Saves the running estimates of all batch norm layers for a given
+            task, in the net.bn_stats attribute.
+        """
+        state_dict = net.state_dict()
+        net.bn_stats[task] = {}
+        for name in state_dict:
+            if ('bn' and  "running_mean") in name or ('bn' and  "running_var") in name:
+                net.bn_stats[task][name] =  state_dict[name].detach().clone()
+
+
+        # for layer_name, m in net.named_modules():
+        #     print("------layer_name------\n", layer_name)
+        #     print("------m--------\n", m)
+        #     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+        #         net.bn_stats[task] = {
+        #             'running_mean': state_dict[layer_name + '.running_mean'].detach().clone(),
+        #             'running_var': state_dict[layer_name + '.running_var'].detach().clone()
+        #         }
+
+    def save_bn_stats_to_file(self, net, dataset_str=None, model_str=None, file_name=None):
+        """
+            Saves net.bn_stats content to a file.
+        """
+        # ckpt_folder = 'checkpoints/' + dataset_str + '/' + model_str + '/'
+        ckpt_folder = join('checkpoints', dataset_str, model_str)
+        os.makedirs(ckpt_folder, exist_ok=True)
+        if not file_name:
+            file_name = 'BN_stats.pt'
+        torch.save(net.bn_stats, join(ckpt_folder, file_name))
 
     def eval_task(self,data_manager,save_conf=False):
         cnn_accy_dict={}
@@ -113,6 +155,11 @@ class BaseLearner(object):
             self.test_loader = DataLoader(
                 test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
             )
+            if self.args['model_name'] == "derwdua":
+                # 要将所有的分支的域换成对应的BN域
+                self.loadBN(self._network,cur_task)
+            # 'convnets.0.stage_1.0.bn_a.running_mean'
+            # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
             y_pred, y_true = self._eval_cnn(self.test_loader)
 
             cnn_accy = self._evaluate(y_pred, y_true)
@@ -165,6 +212,7 @@ class BaseLearner(object):
         return np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
     def _eval_cnn(self, loader):
+
         self._network.eval()
         y_pred, y_true = [], []
         for _, (_, inputs, targets) in enumerate(loader):
@@ -193,7 +241,7 @@ class BaseLearner(object):
     def _eval_nme(self, loader, class_means):
         self._network.eval()
         vectors, y_true = self._extract_vectors(loader)
-        vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+        vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
 
         dists = cdist(class_means, vectors, "sqeuclidean")  # [nb_classes, N]
         scores = dists.T  # [N, nb_classes], choose the one with the smallest distance
@@ -249,10 +297,10 @@ class BaseLearner(object):
 
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+                idx_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
             vectors, _ = self._extract_vectors(idx_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
             mean = np.mean(vectors, axis=0)
             mean = mean / np.linalg.norm(mean)
 
@@ -270,10 +318,10 @@ class BaseLearner(object):
                 domainTrans=self.domainTrans
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+                idx_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
             vectors, _ = self._extract_vectors(idx_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) +self.args['EPSILON'] )).T
             class_mean = np.mean(vectors, axis=0)
 
             # Select
@@ -324,16 +372,14 @@ class BaseLearner(object):
                 mode="test",
                 appendent=(selected_exemplars, exemplar_targets),
 
-
-
             domain_type = self.domain[self._cur_task],
             domainTrans = self.domainTrans
             )
             idx_loader = DataLoader(
-                idx_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+                idx_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
             vectors, _ = self._extract_vectors(idx_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
             mean = np.mean(vectors, axis=0)
             mean = mean / np.linalg.norm(mean)
 
@@ -359,10 +405,10 @@ class BaseLearner(object):
                 domainTrans=self.domainTrans
             )
             class_loader = DataLoader(
-                class_dset, batch_size=batch_size, shuffle=False, num_workers=4
+                class_dset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
             vectors, _ = self._extract_vectors(class_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
             mean = np.mean(vectors, axis=0)
             mean = mean / np.linalg.norm(mean)
 
@@ -379,11 +425,11 @@ class BaseLearner(object):
                 domainTrans=self.domainTrans
             )
             class_loader = DataLoader(
-                class_dset, batch_size=batch_size, shuffle=False, num_workers=4
+                class_dset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
 
             vectors, _ = self._extract_vectors(class_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
             class_mean = np.mean(vectors, axis=0)
 
             # Select
@@ -433,10 +479,10 @@ class BaseLearner(object):
                 domainTrans=self.domainTrans
             )
             exemplar_loader = DataLoader(
-                exemplar_dset, batch_size=batch_size, shuffle=False, num_workers=4
+                exemplar_dset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4
             )
             vectors, _ = self._extract_vectors(exemplar_loader)
-            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + EPSILON)).T
+            vectors = (vectors.T / (np.linalg.norm(vectors.T, axis=0) + +self.args['EPSILON'])).T
             mean = np.mean(vectors, axis=0)
             mean = mean / np.linalg.norm(mean)
 

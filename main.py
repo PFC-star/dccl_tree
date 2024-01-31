@@ -29,12 +29,13 @@ def setup_parser():
     parser.add_argument('--init_cls', '-init', type=int, default=2)
     parser.add_argument('--increment', '-incre', type=int, default=2)
     parser.add_argument('--model_name','-model', type=str, default=None, required=True)
-    parser.add_argument('--convnet_type','-net', type=str, default='resnet32')
+    parser.add_argument('--convnet_type','-net', type=str, default='resnet32',choices=['resnet32', 'resnet110','cosine_resnet34','memo_resnet32','resnet26_cifar','memo_resnet26_cifar'])
     parser.add_argument('--prefix','-p',type=str, help='exp type', default='benchmark', choices=['benchmark', 'fair', 'auc'])
     parser.add_argument('--device','-d', nargs='+', type=int, default=[0,1])
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--skip', action="store_true",)
     parser.add_argument('--domainTrans','-dt',type=bool, default=False)
+    parser.add_argument('--scenario', '-so',  type=str, default='none')
     return parser
 
 

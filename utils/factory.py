@@ -13,6 +13,7 @@ from models.rmm import RMM_FOSTER, RMM_iCaRL
 from models.wa import WA
 from models.memo import MEMO
 from models.joint import Joint
+from models.derwdua import DERWDUA
 def get_model(model_name, args):
     name = model_name.lower()
     if name == "icarl":
@@ -47,5 +48,7 @@ def get_model(model_name, args):
         return MEMO(args)
     elif name == 'joint':
         return Joint(args)
+    elif name == 'derwdua':
+        return DERWDUA(args)
     else:
         assert 0

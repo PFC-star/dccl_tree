@@ -7,26 +7,23 @@
     "shuffle": true,
     "init_cls": 10,
     "increment": 10,
-    "model_name": "icarl",
-    "convnet_type": "memo_resnet32",
-    "device": ["0","1","2","3"],
+    "model_name": "derwdua",
+    "convnet_type": "resnet32",
+    "device": ["0","1"],
     "seed": [2024],
     "EPSILON" : 1e-8,
 
-"init_epoch" :  50,
-"init_lr": 0.1,
-"init_milestones" : [60, 120, 170],
+"init_epoch": 50,
+"init_lr" : 0.1,
+"init_milestones": [60, 120, 170],
 "init_lr_decay" : 0.1,
 "init_weight_decay" : 0.0005,
-
-
 "epochs" : 50,
-"lrate" : 0.1,
-"milestones" : [80, 120],
+"lrate": 0.1,
+"milestones" : [80, 120, 150],
 "lrate_decay" : 0.1,
 "batch_size" : 128,
 "weight_decay" : 2e-4,
-"num_workers" : 8,
-"T" : 2
+"num_workers": 8,
+"T": 2
 }
-

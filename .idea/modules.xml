@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/CIL_Survey-main.iml" filepath="$PROJECT_DIR$/.idea/CIL_Survey-main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../DUA-master/.idea/DUA.iml" filepath="$PROJECT_DIR$/../DUA-master/.idea/DUA.iml" />
     </modules>
   </component>
 </project>

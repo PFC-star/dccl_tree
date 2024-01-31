@@ -92,20 +92,24 @@ def _train(args):
         args["increment"],
     )
     model = factory.get_model(args["model_name"], args)
-
+    setattr(model.__class__, 'bn_stats', {})
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
     start_time = time.time()
     logging.info(f"Start time:{start_time}")
     cnn_acc_list =[]
 
     for task in range(data_manager.nb_tasks):
+
         subResult = []
         logging.info("All params: {}".format(count_parameters(model._network)))
         logging.info(
             "Trainable params: {}".format(count_parameters(model._network, True))
         )
         # 这里每次传的数据集都是一样的，可以修改为不一样的
+
         model.incremental_train(data_manager)
+        model.save_bn_stats_in_model(model._network,task)
+        model.save_bn_stats_to_file(model._network,args["dataset"],args['model_name'])
         if task == data_manager.nb_tasks-1:
             cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager,save_conf=True)
             # cnn_accy_dict = True if nme_accy_dict is None else False
@@ -142,6 +146,8 @@ def _train(args):
             logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
             logging.info("CNN top5 curve: {}\n".format(cnn_curve[topk]))
 
+        print("save model {}".format(task))
+        save_model(args, model)
     end_time = time.time()
     logging.info(f"End Time:{end_time}")
     cost_time = end_time - start_time
@@ -151,10 +157,10 @@ def _train(args):
     # if args["debug"]==False:
     # save_all_results(args=args, cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme,cost_time=cost_time,cnn_acc=cnn_accy)
     save_allll_results(args=args,cnn_acc_list=cnn_acc_list,cost_time=cost_time,cnn_curve=cnn_curve, nme_curve=nme_curve, no_nme=no_nme)
-    # if args['model_name'] not in ["podnet", "coil"]:
-    #     save_fc(args, model)
-    # else:
-    #     save_model(args, model)
+    if args['model_name'] not in ["podnet", "coil"]:
+        save_fc(args, model)
+    else:
+        save_model(args, model)
 
 def _set_device(args):
     device_type = args["device"]
@@ -420,9 +426,11 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
-        sheet_name = args['model_name'] + 'dt'
+        sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'
+        if args['scenario']=='dcl':
+            sheet_name = args['model_name'] +" "+args['convnet_type']+" " +'dcl'
     else:
-        sheet_name = args['model_name']
+        sheet_name = args['model_name'] +" "+args['convnet_type']+" " +  'ccl'
     _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
     writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
 

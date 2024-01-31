@@ -42,13 +42,20 @@ class DER(BaseLearner):
             self._cur_task
         )
 
+
+        if self.args['scenario'] == 'dcl':
+            self._total_classes = 6
+            self._known_classes = 0
+        else:
+            if self._cur_task != 0:
+                self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
-        if self._cur_task != 0:
-            self._known_classes = self._known_classes - 5
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
-
+        logging.info(
+            "domain:{} ".format(self.domain[self._cur_task])
+        )
         if self._cur_task > 0:
             for i in range(self._cur_task):
                 for p in self._network.convnets[i].parameters():
@@ -129,10 +136,10 @@ class DER(BaseLearner):
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
             if len(self._multiple_gpus) > 1:
                 self._network.module.weight_align(
-                    self._total_classes - self._known_classes
+                    self._total_classes - self._known_classes - 5
                 )
             else:
-                self._network.weight_align(self._total_classes - self._known_classes)
+                self._network.weight_align(self._total_classes - self._known_classes - 5)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
         prog_bar = tqdm(range(self.init_epoch))
@@ -143,7 +150,7 @@ class DER(BaseLearner):
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
                 logits = self._network(inputs)["logits"]
-
+                # print("\n logits", logits[0])
                 loss = F.cross_entropy(logits, targets)
                 optimizer.zero_grad()
                 loss.backward()
@@ -151,8 +158,11 @@ class DER(BaseLearner):
                 losses += loss.item()
 
                 _, preds = torch.max(logits, dim=1)
+
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
+
                 total += len(targets)
+
 
             scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
@@ -195,7 +205,7 @@ class DER(BaseLearner):
                 aux_targets = targets.clone()
                 # print("---------aux_targets-------")
                 # print(aux_targets)
-                # print("---------self._known_classes-------")
+                # print("\n---------self._known_classes-------")
                 # print(self._known_classes)
                 # print("---------logits-------")
                 # print(logits.shape)
@@ -204,8 +214,12 @@ class DER(BaseLearner):
                     aux_targets - self._known_classes + 1 - 5,
                     0,
                 )
+                # print("\n---------aux_targets-------")
+                # print(aux_targets.shape)
+                # print("\n---------aux_logits.shape-------")
+                # print(aux_logits.shape)
                 loss_aux = F.cross_entropy(aux_logits, aux_targets)
-                loss = loss_clf + loss_aux
+                loss = loss_clf +loss_aux
 
                 optimizer.zero_grad()
                 loss.backward()

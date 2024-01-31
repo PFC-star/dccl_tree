@@ -42,25 +42,32 @@ class Joint(BaseLearner):
             self._cur_task
         )
 
-        if self._cur_task != 0:
-            self._known_classes = self._known_classes - 5
+        if self.args['scenario'] == 'dcl':
+            self._total_classes = 6
+            self._known_classes = 0
+        else:
+            if self._cur_task != 0:
+                self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
-
+        logging.info(
+            "domain:{} ".format(self.domain[self._cur_task])
+        )
         train_dataset = data_manager.get_dataset(
             # 能够看到所有的数据，然后重新按照所有数据学习一遍，以前的相当于预训练了
             np.arange(0, self._total_classes),
             source="train",
             mode="train",
-            
             domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
         )
+
         self.train_loader = DataLoader(
             train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers
         )
+
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test", mode="test",
             domainTrans=self.domainTrans,
