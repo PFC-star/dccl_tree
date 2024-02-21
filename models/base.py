@@ -29,15 +29,22 @@ class BaseLearner(object):
         self.domainTrans=args['domainTrans']
         if self.domainTrans:
             self.domain = [
-                           'RandomHorizontalFlip',
+                           'None',
+                            'RandomHorizontalFlip',
                             'ColorJitter',
                             'RandomRotation',
-                            'RandomGrayscale',
-                           'RandomVerticalFlip' ,
-
+                           'RandomAffine' ,
                           ]
+            # self.domain = [
+            #
+            #     'RandomHorizontalFlip',
+            #     'ColorJitter',
+            #     'RandomRotation',
+            #     'RandomGrayscale',
+            #     'RandomVerticalFlip',
+            # ]
         else:
-            self.domain=['RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip','RandomHorizontalFlip']
+            self.domain=['None','None','None','None','None']
         self._memory_size = args["memory_size"]
         self._memory_per_class = args.get("memory_per_class", None)
         self._fixed_memory = args.get("fixed_memory", False)
@@ -102,26 +109,58 @@ class BaseLearner(object):
         )
 
         return ret
-    def loadBN(self, net, task):
+    def loadBNall(self, net, task,cur_task):
         """
             Saves the running estimates of all batch norm layers for a given
             task, in the net.bn_stats attribute.
         """
         bn_stats = torch.load('checkpoints/cifar10/derwdua/BN_stats.pt')
-        net.load_state_dict(bn_stats[task], strict=False)
+        state_dict = net.state_dict()
+        updateBnStats = {}
 
-    def save_bn_stats_in_model(self, net, task):
+
+        # modify bn_stats with convnetsName such as convents.0 or convents.1
+        # 'convnets.0.bn_1.running_var'
+        for i in range(cur_task + 1):
+            for name in bn_stats[task]:
+                convnetsName = 'convnets.{}'.format( i)
+                updateBnStats[convnetsName  + name] = bn_stats[task][name]
+        net.load_state_dict(updateBnStats, strict=False)
+
+    def loadBN(self, net,task, cur_task):
+        """
+            Saves the running estimates of all batch norm layers for a given
+            task, in the net.bn_stats attribute.
+        """
+        bn_stats = torch.load('checkpoints/cifar10/derwdua/BN_stats.pt')
+        state_dict = net.state_dict()
+        updateBnStats = {}
+
+        # modify bn_stats with convnetsName such as convents.0 or convents.1
+        # 'convnets.0.bn_1.running_var'
+        for i in range(task + 1):
+            convnetsName = 'convnets.{}'.format(i)
+            for name in bn_stats[cur_task]:
+                updateBnStats[convnetsName+name[10:]+'.running_mean'] = bn_stats[cur_task][name]['running_mean']
+                updateBnStats[convnetsName+name[10:] + '.running_var'] = bn_stats[cur_task][name]['running_var']
+
+        net.load_state_dict(updateBnStats, strict=False)
+
+    def save_bn_stats_in_model_all(self, net, task):
         """
             Saves the running estimates of all batch norm layers for a given
             task, in the net.bn_stats attribute.
         """
         state_dict = net.state_dict()
         net.bn_stats[task] = {}
+        convnetsName = 'convnets.{}'.format(task)
+
         for name in state_dict:
-            if ('bn' and  "running_mean") in name or ('bn' and  "running_var") in name:
-                net.bn_stats[task][name] =  state_dict[name].detach().clone()
 
+            if name.startswith(convnetsName) and ('bn' and  "running_mean") in name or ('bn' and  "running_var") in name:
+                net.bn_stats[task][name[10:]] =  state_dict[name].detach().clone()
 
+        print()
         # for layer_name, m in net.named_modules():
         #     print("------layer_name------\n", layer_name)
         #     print("------m--------\n", m)
@@ -130,6 +169,20 @@ class BaseLearner(object):
         #             'running_mean': state_dict[layer_name + '.running_mean'].detach().clone(),
         #             'running_var': state_dict[layer_name + '.running_var'].detach().clone()
         #         }
+
+    def save_bn_stats_in_model(self,net, task):
+        """
+            Saves the running estimates of all batch norm layers for a given
+            task, in the net.bn_stats attribute.
+        """
+        state_dict = net.state_dict()
+        net.bn_stats[task] = {}
+        for layer_name, m in net.named_modules():
+            if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                net.bn_stats[task][layer_name] = {
+                    'running_mean': state_dict[layer_name + '.running_mean'].detach().clone(),
+                    'running_var': state_dict[layer_name + '.running_var'].detach().clone()
+                }
 
     def save_bn_stats_to_file(self, net, dataset_str=None, model_str=None, file_name=None):
         """
@@ -155,9 +208,44 @@ class BaseLearner(object):
             self.test_loader = DataLoader(
                 test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
             )
+
+
+
             if self.args['model_name'] == "derwdua":
                 # 要将所有的分支的域换成对应的BN域
-                self.loadBN(self._network,cur_task)
+                # self.loadBN(self._network,self._cur_task,cur_task)
+                mom_pre = 0.1
+
+                train_dataset = data_manager.get_dataset(
+                    np.arange(self._known_classes, self._total_classes),
+                    source="train",
+                    mode="train",
+                    appendent=self._get_memory(),
+                    domainTrans=self.domainTrans,
+                    domain_type=self.domain[cur_task]
+                )
+                self.train_loader = DataLoader(
+                    train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.num_workers
+                )
+
+                self._network.eval()
+                for i, (_, inputs, targets) in enumerate(self.train_loader):
+                    if i> 1:
+
+                        break
+                    inputs, targets = inputs.to(self._device), targets.to(self._device)
+                    mom_new = (mom_pre * 0.94)
+                    for m in self._network.modules():
+                        # print(m)
+                        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                            m.train()
+                            m.momentum = mom_new + 0.005
+                    mom_pre = mom_new
+
+                    _ = self._network(inputs)
+
+
+
             # 'convnets.0.stage_1.0.bn_a.running_mean'
             # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
             y_pred, y_true = self._eval_cnn(self.test_loader)

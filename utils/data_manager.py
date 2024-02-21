@@ -67,6 +67,10 @@ class DataManager(object):
             domain_trsf = [
                 transforms.RandomVerticalFlip(p=1.0)
             ]
+        elif domain_type == "RandomAffine":
+            domain_trsf = [
+                transforms.RandomAffine(degrees=45, translate=(0.2, 0.2))
+            ]
         elif domain_type=='None':
             domain_trsf = [
                  # 为空，不作修改
