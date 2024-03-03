@@ -189,6 +189,7 @@ class IncrementalNet(BaseNet):
         if hasattr(self, "gradcam") and self.gradcam:
             self._gradcam_hooks = [None, None]
             self.set_gradcam_hook()
+        self.bn_stats = {}
 
     def update_fc(self, nb_classes):
         fc = self.generate_fc(self.feature_dim, nb_classes)
@@ -726,5 +727,4 @@ class AdaptiveNet(nn.Module):
         self.TaskAgnosticExtractor.load_state_dict(base_state_dict)
         self.AdaptiveExtractors[0].load_state_dict(adap_state_dict)
         self.fc.load_state_dict(model_infos['fc'])
-        test_acc = model_infos['test_acc']
-        return test_acc
+        test_acc = model_infos['test_ac']

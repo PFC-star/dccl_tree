@@ -28,10 +28,7 @@
     "epochs": 50,
     "lrate": 0.1,
     "milestones": [
-        60,
-        120,
-        180,
-        220
+        40,70
     ],
     "lrate_decay": 0.1,
     "batch_size": 128,

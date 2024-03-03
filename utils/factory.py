@@ -14,6 +14,8 @@ from models.wa import WA
 from models.memo import MEMO
 from models.joint import Joint
 from models.derwdua import DERWDUA
+from models.icarlwdua import iCaRLWDUA
+from models.lwfwdua import LwFWDUA
 def get_model(model_name, args):
     name = model_name.lower()
     if name == "icarl":
@@ -50,5 +52,9 @@ def get_model(model_name, args):
         return Joint(args)
     elif name == 'derwdua':
         return DERWDUA(args)
+    elif name == 'icarlwdua':
+        return iCaRLWDUA(args)
+    elif name == 'lwfwdua':
+        return LwFWDUA(args)
     else:
         assert 0

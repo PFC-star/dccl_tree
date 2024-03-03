@@ -13,7 +13,7 @@
     "seed": [2024],
     "init_epoch" :50,
 "init_lr" :0.1,
-"init_milestones" : [60, 120, 170],
+"init_milestones" : [60, 120, 160],
 "init_lr_decay" : 0.1,
 "init_weight_decay" : 0.0005,
 

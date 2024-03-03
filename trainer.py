@@ -6,13 +6,15 @@ import os
 import sys
 import time
 
+import numpy as np
 import torch
 from utils import factory
 from utils.data_manager import DataManager
 from utils.toolkit import ConfigEncoder, count_parameters, save_fc, save_model
 import pandas as pd
 
-result = []
+time_list = []
+model_size=[]
 topk = 'top2'
 def train(args):
     seed_list = copy.deepcopy(args["seed"])
@@ -94,12 +96,12 @@ def _train(args):
     model = factory.get_model(args["model_name"], args)
     setattr(model.__class__, 'bn_stats', {})
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
-    start_time = time.time()
-    logging.info(f"Start time:{start_time}")
+
     cnn_acc_list =[]
 
     for task in range(data_manager.nb_tasks):
-
+        start_time = time.time()
+        logging.info(f"Start time:{start_time}")
         subResult = []
         logging.info("All params: {}".format(count_parameters(model._network)))
         logging.info(
@@ -145,12 +147,12 @@ def _train(args):
 
             logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
             logging.info("CNN top5 curve: {}\n".format(cnn_curve[topk]))
-
+        end_time = time.time()
+        logging.info(f"End Time:{end_time}")
+        cost_time = end_time - start_time
         print("save model {}".format(task))
-        save_model(args, model)
-    end_time = time.time()
-    logging.info(f"End Time:{end_time}")
-    cost_time = end_time - start_time
+        model_size.append(save_model(args, model))
+        time_list.append(cost_time)
     # save_time(args, cost_time)
     # save_results(args, cnn_curve, nme_curve, no_nme)
 
@@ -160,7 +162,7 @@ def _train(args):
     if args['model_name'] not in ["podnet", "coil"]:
         save_fc(args, model)
     else:
-        save_model(args, model)
+        model_size.append(save_model(args, model))
 
 def _set_device(args):
     device_type = args["device"]
@@ -414,12 +416,31 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
                     break
             task_result.extend(acc_list)
 
+
         data.append(task_result)
+    total_acc = []
+    total_forget = []
+    for i,model_acc in enumerate(data):
+        temp_acc_lst = []
+        for j in range(i+1):
+            temp_acc_lst.append(model_acc[j*11])
+
+        total_acc.append(np.average(temp_acc_lst))
+    for acc in total_acc:
+        total_forget.append(max(total_acc)-acc)
+    # 调用插入数组函数
+    for i,model_acc in enumerate(data):
+        model_acc.insert(0, total_acc[i])
+        model_acc.insert(0,total_forget[i])
+        model_acc.insert(2, model_size[i])
+        model_acc.insert(3, time_list[i])
+
     argsKeyList = []
     argsValueList = []
     for key, value in args.items():
          argsKeyList.extend(["{}".format(key)])
          argsValueList.extend(["{}".format(value)])
+
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)

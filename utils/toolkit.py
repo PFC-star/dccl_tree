@@ -108,3 +108,12 @@ def save_model(args, model):
     else:
         weight = model._network.cpu()
     torch.save(weight, _path)
+    param_size = 0
+    buffer_size = 0
+    for param in model._network.parameters():
+        param_size += param.nelement() * param.element_size()
+    for buffer in model._network.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+    size_all_mb = (param_size + buffer_size) / 1024 ** 2
+    print('Size: {:.3f} MB'.format(size_all_mb))
+    return size_all_mb

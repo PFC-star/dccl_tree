@@ -57,7 +57,7 @@ class DataManager(object):
             ]
         elif domain_type == "RandomRotation":
             domain_trsf = [
-                transforms.RandomRotation(90)
+                transforms.RandomRotation(5)
             ]
         elif domain_type == "RandomGrayscale":
             domain_trsf = [
@@ -69,7 +69,7 @@ class DataManager(object):
             ]
         elif domain_type == "RandomAffine":
             domain_trsf = [
-                transforms.RandomAffine(degrees=45, translate=(0.2, 0.2))
+                transforms.RandomAffine(degrees=0, translate=(0.05, 0.05))
             ]
         elif domain_type=='None':
             domain_trsf = [

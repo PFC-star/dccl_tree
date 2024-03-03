@@ -29,11 +29,11 @@ class BaseLearner(object):
         self.domainTrans=args['domainTrans']
         if self.domainTrans:
             self.domain = [
-                           'None',
+                            'None',
                             'RandomHorizontalFlip',
                             'ColorJitter',
                             'RandomRotation',
-                           'RandomAffine' ,
+                            'RandomAffine' ,
                           ]
             # self.domain = [
             #
@@ -132,17 +132,21 @@ class BaseLearner(object):
             Saves the running estimates of all batch norm layers for a given
             task, in the net.bn_stats attribute.
         """
-        bn_stats = torch.load('checkpoints/cifar10/derwdua/BN_stats.pt')
+        path_name ='checkpoints/'+ self.args['dataset']+'/'+ self.args['model_name']+'/'+'BN_stats.pt'
+        bn_stats = torch.load(path_name)
         state_dict = net.state_dict()
         updateBnStats = {}
 
         # modify bn_stats with convnetsName such as convents.0 or convents.1
         # 'convnets.0.bn_1.running_var'
         for i in range(task + 1):
-            convnetsName = 'convnets.{}'.format(i)
+            # convnetsName = 'convnets.{}'.format(i)
+            convnetsName='convnets.'
             for name in bn_stats[cur_task]:
-                updateBnStats[convnetsName+name[10:]+'.running_mean'] = bn_stats[cur_task][name]['running_mean']
-                updateBnStats[convnetsName+name[10:] + '.running_var'] = bn_stats[cur_task][name]['running_var']
+                # updateBnStats[convnetsName+name[10:]+'.running_mean'] = bn_stats[cur_task][name]['running_mean']
+                # updateBnStats[convnetsName+name[10:] + '.running_var'] = bn_stats[cur_task][name]['running_var']
+                updateBnStats[  name +'.running_mean'] = bn_stats[cur_task][name]['running_mean']
+                updateBnStats[  name  + '.running_var'] = bn_stats[cur_task][name]['running_var']
 
         net.load_state_dict(updateBnStats, strict=False)
 
@@ -183,7 +187,7 @@ class BaseLearner(object):
                     'running_mean': state_dict[layer_name + '.running_mean'].detach().clone(),
                     'running_var': state_dict[layer_name + '.running_var'].detach().clone()
                 }
-
+        print()
     def save_bn_stats_to_file(self, net, dataset_str=None, model_str=None, file_name=None):
         """
             Saves net.bn_stats content to a file.
@@ -211,7 +215,7 @@ class BaseLearner(object):
 
 
 
-            if self.args['model_name'] == "derwdua":
+            if self.args['model_name'] == "derwdua" or "icarlwdua" or "lwfwdua":
                 # 要将所有的分支的域换成对应的BN域
                 # self.loadBN(self._network,self._cur_task,cur_task)
                 mom_pre = 0.1
@@ -225,13 +229,12 @@ class BaseLearner(object):
                     domain_type=self.domain[cur_task]
                 )
                 self.train_loader = DataLoader(
-                    train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.num_workers
+                    train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
                 )
 
                 self._network.eval()
                 for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i> 1:
-
+                    if i> 3:
                         break
                     inputs, targets = inputs.to(self._device), targets.to(self._device)
                     mom_new = (mom_pre * 0.94)
