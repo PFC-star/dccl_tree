@@ -42,7 +42,7 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
 
     assert len(y_pred) == len(y_true), "Data length error."
     dclflag = False
-    if np.max(y_true)== 59 and cur_task!=0:
+    if np.max(y_true)== 5 and cur_task!=0:
         dclflag=True
     all_acc = {}
     # Grouped accuracy
