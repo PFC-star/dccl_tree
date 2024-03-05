@@ -22,6 +22,7 @@ class LwF(BaseLearner):
     def after_task(self):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
+        logging.info("Exemplar size: {}".format(self.exemplar_size))
 
     def incremental_train(self, data_manager):
         self._cur_task += 1
@@ -67,7 +68,7 @@ class LwF(BaseLearner):
         self._train(self.train_loader, self.test_loader)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
-
+        self.build_rehearsal_memory(data_manager, self.samples_per_class)
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)
         if self._old_network is not None:
@@ -82,7 +83,11 @@ class LwF(BaseLearner):
             )
             scheduler = optim.lr_scheduler.MultiStepLR(
                 optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
-            )
+                )
+            # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            #     optimizer,
+            #     T_max=self.args['init_epoch'],
+            # ) #check
             if self.args['skip'] :
                 if len(self._multiple_gpus) > 1:
                     self._network = self._network.module
@@ -100,7 +105,7 @@ class LwF(BaseLearner):
                 lr=self.args['lrate'],
                 momentum=0.9,
                 weight_decay=self.args['weight_decay'],
-            )
+            )# 1e-5
             scheduler = optim.lr_scheduler.MultiStepLR(
                 optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
             )

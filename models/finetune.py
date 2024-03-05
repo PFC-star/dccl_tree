@@ -41,40 +41,38 @@ class Finetune(BaseLearner):
         self._total_classes = self._known_classes + data_manager.get_task_size(
             self._cur_task
         )
-        if self.args['scenario']== 'dcl':
+        if self.args['scenario'] == 'dcl':
             self._total_classes = 6
             self._known_classes = 0
         else:
             if self._cur_task != 0:
                 self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
+
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
         logging.info(
             "domain:{} ".format(self.domain[self._cur_task])
         )
-
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
             source="train",
             mode="train",
+            
+            domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
-            domainTrans=self.domainTrans
         )
-
         self.train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers
+            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
         )
         test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test",
-            mode="test",
+            np.arange(0, self._total_classes), source="test", mode="test",
+            domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
-            domainTrans=self.domainTrans
-
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers
+            test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
         )
 
         if len(self._multiple_gpus) > 1:
@@ -88,20 +86,19 @@ class Finetune(BaseLearner):
         print("domain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
-                self._network.parameters(),  
+                self._network.parameters(),
                 momentum=0.9,
-                lr=self.init_lr,
-                weight_decay=self.init_weight_decay,
+                lr=self.args['init_lr'],
+                weight_decay=self.args['init_weight_decay'],
             )
-            # scheduler = optim.lr_scheduler.MultiStepLR(
-            #     optimizer=optimizer, milestones=init_milestones, gamma=init_lr_decay
-            # )
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, 
-                T_max=self.init_epoch,
-            ) #check
-
-            if self.args['skip']:
+            scheduler = optim.lr_scheduler.MultiStepLR(
+                optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
+                )
+            # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            #     optimizer,
+            #     T_max=self.init_epoch,
+            # ) #check
+            if self.args['skip'] :
                 if len(self._multiple_gpus) > 1:
                     self._network = self._network.module
                 load_acc = self._network.load_checkpoint(self.args)
@@ -114,18 +111,18 @@ class Finetune(BaseLearner):
                 self._init_train(train_loader, test_loader, optimizer, scheduler)
         else:
             optimizer = optim.SGD(
-                self._network.parameters(),  
-                lr=self.lrate,
+                self._network.parameters(),
+                lr=self.args['lrate'],
                 momentum=0.9,
-                weight_decay=self.weight_decay,
-            )  # 1e-5
+                weight_decay=self.args['weight_decay'],
+            ) # 1e-5
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.milestones, gamma=self.lrate_decay
+                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
             )
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(self.init_epoch))
+        prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -151,7 +148,7 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    self.init_epoch,
+                    self.args['init_epoch'],
                     losses / len(train_loader),
                     train_acc,
                 )
@@ -160,18 +157,19 @@ class Finetune(BaseLearner):
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    self.init_epoch,
+                    self.args['init_epoch'],
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
                 )
             prog_bar.set_description(info)
+
         logging.info(info)
 
-        # save checkpoint for fair comparison & save runing time
-        test_acc = self._compute_accuracy(self._network, test_loader)
-        self.save_checkpoint(test_acc)
-        logging.info("Save checkpoint successfully!")
+        # # save checkpoint for fair comparison & save runing time
+        # test_acc = self._compute_accuracy(self._network, test_loader)
+        # self.save_checkpoint(test_acc)
+        # logging.info("Save checkpoint successfully!")
 
     def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
 

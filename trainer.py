@@ -107,6 +107,7 @@ def _train(args):
         logging.info(
             "Trainable params: {}".format(count_parameters(model._network, True))
         )
+
         # 这里每次传的数据集都是一样的，可以修改为不一样的
 
         model.incremental_train(data_manager)
@@ -153,6 +154,8 @@ def _train(args):
         print("save model {}".format(task))
         model_size.append(save_model(args, model))
         time_list.append(cost_time)
+        if args["model_name"] =="joint":
+            break
     # save_time(args, cost_time)
     # save_results(args, cnn_curve, nme_curve, no_nme)
 
@@ -422,7 +425,9 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     total_forget = []
     for i,model_acc in enumerate(data):
         temp_acc_lst = []
+        #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
         for j in range(i+1):
+
             temp_acc_lst.append(model_acc[j*11])
 
         total_acc.append(np.average(temp_acc_lst))
@@ -444,7 +449,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
         sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'

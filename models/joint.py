@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
-
+from torch.utils.data import ConcatDataset
 
 
 
@@ -42,12 +42,10 @@ class Joint(BaseLearner):
             self._cur_task
         )
 
-        if self.args['scenario'] == 'dcl':
-            self._total_classes = 6
-            self._known_classes = 0
-        else:
-            if self._cur_task != 0:
-                self._known_classes = self._known_classes - 5
+
+        self._total_classes = 100
+        self._known_classes = 0
+
         self._network.update_fc(self._total_classes)
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
@@ -55,31 +53,54 @@ class Joint(BaseLearner):
         logging.info(
             "domain:{} ".format(self.domain[self._cur_task])
         )
-        train_dataset = data_manager.get_dataset(
+        train_dataset_lst = globals()
+        self.train_loader_lst = globals()
+        test_dataset_lst = globals()
+        self.test_loader_lst = globals()
+
+
+        for i in range(5):
+            if self.domainTrans:
+                domain_=i
+            else:
+                domain_=0
+            train_dataset_lst['train_dataset_{}'.format(i)] = data_manager.get_dataset(
             # 能够看到所有的数据，然后重新按照所有数据学习一遍，以前的相当于预训练了
             np.arange(0, self._total_classes),
             source="train",
             mode="train",
             domainTrans=self.domainTrans,
-            domain_type=self.domain[self._cur_task],
+            domain_type=self.domain[domain_],
+         )
+
+
+
+            test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                np.arange(0, self._total_classes), source="test", mode="test",
+                domainTrans=self.domainTrans,
+                domain_type=self.domain[domain_],
+            )
+
+        concat_train_set = ConcatDataset([train_dataset_0, train_dataset_1, train_dataset_2,train_dataset_3,train_dataset_4])
+        concat_test_set = ConcatDataset( [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
+        self._contact_train_loader = DataLoader(
+            concat_train_set, batch_size=self.batch_size, shuffle=True,
+            num_workers=self.num_workers
         )
 
-        self.train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers
+        self._contact_test_loader = DataLoader(
+            concat_test_set, batch_size=self.batch_size, shuffle=True,
+            num_workers=self.num_workers
         )
-
-        test_dataset = data_manager.get_dataset(
-            np.arange(0, self._total_classes), source="test", mode="test",
-            domainTrans=self.domainTrans,
-            domain_type=self.domain[self._cur_task],
-        )
-        self.test_loader = DataLoader(
-            test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers
-        )
-
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-        self._train(self.train_loader, self.test_loader)
+
+        # 交替各个数据集 D0，D1 D2 D3 D4 D5，那如何续上呢？
+
+        self._train(self._contact_train_loader,self._contact_test_loader)
+
+
+
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
@@ -179,25 +200,19 @@ class Joint(BaseLearner):
 
                 fake_targets = targets - self._known_classes
                 loss_clf = F.cross_entropy(
-                    logits[:, self._known_classes :], fake_targets
-                )
-                loss_kd = _KD_loss(
-                    logits[:, : self._known_classes],
-                    self._old_network(inputs)["logits"],
-                    T,
+                    logits[:, self._known_classes:], fake_targets
                 )
 
-                loss = lamda * loss_kd + loss_clf
+                loss = loss_clf
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 losses += loss.item()
 
-                with torch.no_grad():
-                    _, preds = torch.max(logits, dim=1)
-                    correct += preds.eq(targets.expand_as(preds)).cpu().sum()
-                    total += len(targets)
+                _, preds = torch.max(logits, dim=1)
+                correct += preds.eq(targets.expand_as(preds)).cpu().sum()
+                total += len(targets)
 
             scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
@@ -223,7 +238,3 @@ class Joint(BaseLearner):
         logging.info(info)
 
 
-def _KD_loss(pred, soft, T):
-    pred = torch.log_softmax(pred / T, dim=1)
-    soft = torch.softmax(soft / T, dim=1)
-    return -1 * torch.mul(soft, pred).sum() / pred.shape[0]

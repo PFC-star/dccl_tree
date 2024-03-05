@@ -18,7 +18,7 @@ class iCaRL(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
-
+        self.args = args
     def after_task(self):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
@@ -36,81 +36,86 @@ class iCaRL(BaseLearner):
             if self._cur_task != 0:
                 self._known_classes = self._known_classes - 5
         self._network.update_fc(self._total_classes)
+
         logging.info(
             "Learning on {}-{}".format(self._known_classes, self._total_classes)
         )
-
+        logging.info(
+            "domain:{} ".format(self.domain[self._cur_task])
+        )
+        # 这里正式建立数据集
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
             source="train",
             mode="train",
-            appendent=self._get_memory(),
+            appendent=self._get_memory(),  # 这个地方会加入重放数据集
             domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
         )
         self.train_loader = DataLoader(
-            train_dataset, batch_size=self.args["batch_size"], shuffle=True, num_workers=self.args["num_workers"]
+            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
         )
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test", mode="test",
-        domainTrans = self.domainTrans,
-        domain_type = self.domain[self._cur_task],
+            domainTrans=self.domainTrans,
+            domain_type=self.domain[self._cur_task],
         )
         self.test_loader = DataLoader(
-            test_dataset, batch_size=self.args["batch_size"] , shuffle=False, num_workers=self.args["num_workers"]
+            test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
         )
-
-        if self.args['skip'] and self._cur_task==0:
-            load_acc = self._network.load_checkpoint(self.args)
 
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-
-        if self._cur_task == 0:
-            if self.args['skip']:
-                self._network.to(self._device)
-                cur_test_acc = self._compute_accuracy(self._network, self.test_loader)
-                logging.info(f"Loaded_Test_Acc:{load_acc} Cur_Test_Acc:{cur_test_acc}")
-            else:
-                self._train(self.train_loader, self.test_loader) 
-                self._compute_accuracy(self._network, self.test_loader)
-        else:
-            self._train(self.train_loader, self.test_loader)
-
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
+        self._train(self.train_loader, self.test_loader)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
+
+        self.build_rehearsal_memory(data_manager, self.samples_per_class)
 
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)
         if self._old_network is not None:
             self._old_network.to(self._device)
-        print("\ndomain_type:", self.domain[self._cur_task])
+        print("domain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
                 self._network.parameters(),
                 momentum=0.9,
-                lr=self.args["init_lr"],
-                weight_decay=self.args["init_weight_decay"],
+                lr=self.args['init_lr'],
+                weight_decay=self.args['init_weight_decay'],
             )
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args["init_milestones"], gamma=self.args["init_lr_decay"]
-            )
-            self._init_train(train_loader, test_loader, optimizer, scheduler)
+                optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
+                )
+            # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            #     optimizer,
+            #     T_max=self.args['init_epoch'],
+            # ) #check
+            if self.args['skip'] :
+                if len(self._multiple_gpus) > 1:
+                    self._network = self._network.module
+                load_acc = self._network.load_checkpoint(self.args)
+                self._network.to(self._device)
+                cur_test_acc = self._compute_accuracy(self._network, self.test_loader)
+                logging.info(f"Loaded_Test_Acc:{load_acc} Cur_Test_Acc:{cur_test_acc}")
+                if len(self._multiple_gpus) > 1:
+                    self._network = nn.DataParallel(self._network, self._multiple_gpus)
+            else:
+                self._init_train(train_loader, test_loader, optimizer, scheduler)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
-                lr=self.args["lrate"],
+                lr=self.args['lrate'],
                 momentum=0.9,
-                weight_decay=self.args["weight_decay"],
-            )  # 1e-5
+                weight_decay=self.args['weight_decay'],
+            )# 1e-5
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args["milestones"], gamma=self.args["lrate_decay"]
+                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
             )
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(self.args["init_epoch"]))
+        prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -133,22 +138,23 @@ class iCaRL(BaseLearner):
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
             if epoch % 5 == 0:
+                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
+                    self._cur_task,
+                    epoch + 1,
+                    self.args['init_epoch'],
+                    losses / len(train_loader),
+                    train_acc,
+
+                )
+            else:
                 test_acc = self._compute_accuracy(self._network, test_loader)
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
-                    self.args["init_epoch"],
+                    self.args['init_epoch'],
                     losses / len(train_loader),
                     train_acc,
                     test_acc,
-                )
-            else:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args["init_epoch"],
-                    losses / len(train_loader),
-                    train_acc,
                 )
             prog_bar.set_description(info)
 

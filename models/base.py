@@ -98,9 +98,9 @@ class BaseLearner(object):
     def after_task(self):
         pass
 
-    def _evaluate(self, y_pred, y_true):
+    def _evaluate(self, y_pred, y_true,cur_task):
         ret = {}
-        grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment)
+        grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment,cur_task=cur_task)
         ret["grouped"] = grouped
         ret["top1"] = grouped["total"]
         ret["top{}".format(self.topk)] = np.around(
@@ -218,6 +218,7 @@ class BaseLearner(object):
             if self.args['model_name'] == "derwdua" or "icarlwdua" or "lwfwdua":
                 # 要将所有的分支的域换成对应的BN域
                 # self.loadBN(self._network,self._cur_task,cur_task)
+                print("----------------DUA---------------------------")
                 mom_pre = 0.1
 
                 train_dataset = data_manager.get_dataset(
@@ -253,11 +254,11 @@ class BaseLearner(object):
             # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
             y_pred, y_true = self._eval_cnn(self.test_loader)
 
-            cnn_accy = self._evaluate(y_pred, y_true)
+            cnn_accy = self._evaluate(y_pred, y_true,cur_task)
 
             if hasattr(self, "_class_means"):
                 y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
-                nme_accy = self._evaluate(y_pred, y_true)
+                nme_accy = self._evaluate(y_pred, y_true,cur_task)
             else:
                 nme_accy = None
 
