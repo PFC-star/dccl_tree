@@ -55,12 +55,12 @@ class iCaRLWDUA(BaseLearner):
             domain_type=self.domain[self._cur_task],
         )
         self.train_loader = DataLoader(
-            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
+            train_dataset, batch_size=self.args["batch_size"], shuffle=True, num_workers=self.args["num_workers"]
         )
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test", mode="test",
-            domainTrans=self.domainTrans,
-            domain_type=self.domain[self._cur_task],
+        domainTrans = self.domainTrans,
+        domain_type = self.domain[self._cur_task],
         )
         self.test_loader = DataLoader(
             test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
@@ -68,7 +68,19 @@ class iCaRLWDUA(BaseLearner):
 
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-        self._train(self.train_loader, self.test_loader)
+
+        if self._cur_task == 0:
+            if self.args['skip']:
+                self._network.to(self._device)
+                cur_test_acc = self._compute_accuracy(self._network, self.test_loader)
+                logging.info(f"Loaded_Test_Acc:{load_acc} Cur_Test_Acc:{cur_test_acc}")
+            else:
+                self._train(self.train_loader, self.test_loader)
+                self._compute_accuracy(self._network, self.test_loader)
+        else:
+            self._train(self.train_loader, self.test_loader)
+
+        self.build_rehearsal_memory(data_manager, self.samples_per_class)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
@@ -77,52 +89,48 @@ class iCaRLWDUA(BaseLearner):
         self._network.to(self._device)
         if self._old_network is not None:
             self._old_network.to(self._device)
-        print("domain_type:",self.domain[self._cur_task])
+        print("\ndomain_type:", self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
                 self._network.parameters(),
                 momentum=0.9,
-                lr=self.args['init_lr'],
-                weight_decay=self.args['init_weight_decay'],
+                lr=self.args["init_lr"],
+                weight_decay=self.args["init_weight_decay"],
             )
-            # scheduler = optim.lr_scheduler.MultiStepLR(
-            #     optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
-            #     )
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, 
-                T_max=self.args['init_epoch'],
-            ) #check
-            if self.args['skip'] :
-                if len(self._multiple_gpus) > 1:
-                    self._network = self._network.module
-                load_acc = self._network.load_checkpoint(self.args)
-                self._network.to(self._device)
-                cur_test_acc = self._compute_accuracy(self._network, self.test_loader)
-                logging.info(f"Loaded_Test_Acc:{load_acc} Cur_Test_Acc:{cur_test_acc}")
-                if len(self._multiple_gpus) > 1:
-                    self._network = nn.DataParallel(self._network, self._multiple_gpus)
-            else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler)
+            scheduler = optim.lr_scheduler.MultiStepLR(
+                optimizer=optimizer, milestones=self.args["init_milestones"], gamma=self.args["init_lr_decay"]
+            )
+            self._init_train(train_loader, test_loader, optimizer, scheduler)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
-                lr=self.args['lrate'],
+                lr=self.args["lrate"],
                 momentum=0.9,
-                weight_decay=self.args['weight_decay'],
-            )# 1e-5
+                weight_decay=self.args["weight_decay"],
+            )  # 1e-5
             scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
+                optimizer=optimizer, milestones=self.args["milestones"], gamma=self.args["lrate_decay"]
             )
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(self.args['init_epoch']))
+        prog_bar = tqdm(range(self.args["init_epoch"]))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
             correct, total = 0, 0
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
+                # add
+                # mom_new = (mom_pre * 0.94)
+                # for m in self._network.modules():
+                #     # print(m)
+                #     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                #         m.train()
+                #         m.momentum = mom_new + 0.005
+                # mom_pre = mom_new
+                # # add
+
                 logits = self._network(inputs)["logits"]
 
                 loss = F.cross_entropy(logits, targets)
@@ -139,17 +147,17 @@ class iCaRLWDUA(BaseLearner):
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
             if epoch % 5 == 0:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args['init_epoch'],
-                    losses / len(train_loader),
-                    train_acc,
-
-                )
-            else:
                 test_acc = self._compute_accuracy(self._network, test_loader)
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+                    self._cur_task,
+                    epoch + 1,
+                    self.args["init_epoch"],
+                    losses / len(train_loader),
+                    train_acc,
+                    test_acc,
+                )
+            else:
+                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
                     self.args['init_epoch'],
@@ -167,8 +175,21 @@ class iCaRLWDUA(BaseLearner):
             self._network.train()
             losses = 0.0
             correct, total = 0, 0
+            # add
+            mom_pre = 0.1
+            # add
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
+
+                # # add
+                # mom_new = (mom_pre * 0.94)
+                # for m in self._network.modules():
+                #     # print(m)
+                #     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                #         m.train()
+                #         m.momentum = mom_new + 0.005
+                # mom_pre = mom_new
+                # # add
                 logits = self._network(inputs)["logits"]
 
                 loss_clf = F.cross_entropy(logits, targets)
