@@ -19,7 +19,7 @@ class LwFWDUA(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self):
+    def after_task(self,data_manager):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
         logging.info("Exemplar size: {}".format(self.exemplar_size))
@@ -68,7 +68,7 @@ class LwFWDUA(BaseLearner):
         self._train(self.train_loader, self.test_loader)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
+        # self.build_rehearsal_memory(data_manager, self.samples_per_class)
 
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)

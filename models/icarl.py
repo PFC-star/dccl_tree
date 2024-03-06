@@ -19,9 +19,11 @@ class iCaRL(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self):
+    def after_task(self,data_manager):
+        self.build_rehearsal_memory(data_manager, self.samples_per_class)
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
+
         logging.info("Exemplar size: {}".format(self.exemplar_size))
 
     def incremental_train(self, data_manager):
@@ -67,10 +69,10 @@ class iCaRL(BaseLearner):
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
         self._train(self.train_loader, self.test_loader)
+
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
 
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)
@@ -109,9 +111,14 @@ class iCaRL(BaseLearner):
                 momentum=0.9,
                 weight_decay=self.args['weight_decay'],
             )# 1e-5
-            scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
-            )
+            # scheduler = optim.lr_scheduler.MultiStepLR(
+            #     optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
+            # )
+
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=self.args['init_epoch'],
+            ) #check
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
@@ -169,8 +176,9 @@ class iCaRL(BaseLearner):
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
                 logits = self._network(inputs)["logits"]
-
                 loss_clf = F.cross_entropy(logits, targets)
+
+
                 if self.args['scenario'] == 'dcl':
                     loss_kd = _KD_loss(
                         logits[:, : self._known_classes + 6],
@@ -179,12 +187,12 @@ class iCaRL(BaseLearner):
                     )
                 else:
                     loss_kd = _KD_loss(
-                        logits[:, : self._known_classes+5],
+                        logits[:, : self._known_classes + 5],
                         self._old_network(inputs)["logits"],
                         self.args["T"],
                     )
 
-                loss = loss_clf + loss_kd
+                loss =  loss_kd + loss_clf
 
                 optimizer.zero_grad()
                 loss.backward()

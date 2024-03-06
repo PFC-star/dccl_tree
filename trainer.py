@@ -122,7 +122,7 @@ def _train(args):
         cnn_acc_list.append(cnn_accy_dict)
         print("task {}:".format(task))
         print(cnn_accy_dict)
-        model.after_task()
+        model.after_task(data_manager)
         cnn_accy = cnn_accy_dict['dataset ID {}:'.format(task)]
         nme_accy = nme_accy_dict['dataset ID {}:'.format(task)]
         if nme_accy is not None:

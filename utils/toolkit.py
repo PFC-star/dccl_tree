@@ -61,12 +61,12 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
     tempTatalacc=[]
     if dclflag:
         cur_task = 0
-    print("cur_task: ",  cur_task)
+    # print("cur_task: ",  cur_task)
     for class_id in range(cur_task, cur_task+6, increment):
         label = "{}-{}".format(
             str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
         )
-        print(label)
+        # print(label)
         tempTatalacc.append(all_acc_temp[label])
     all_acc["total"] = np.average(tempTatalacc)
 

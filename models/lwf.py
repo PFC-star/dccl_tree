@@ -19,7 +19,7 @@ class LwF(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self):
+    def after_task(self,data_manager):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
         logging.info("Exemplar size: {}".format(self.exemplar_size))
@@ -68,7 +68,7 @@ class LwF(BaseLearner):
         self._train(self.train_loader, self.test_loader)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
+        # self.build_rehearsal_memory(data_manager, self.samples_per_class)
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)
         if self._old_network is not None:
@@ -106,9 +106,13 @@ class LwF(BaseLearner):
                 momentum=0.9,
                 weight_decay=self.args['weight_decay'],
             )# 1e-5
-            scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
-            )
+            # scheduler = optim.lr_scheduler.MultiStepLR(
+            #     optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
+            # )
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=self.args['init_epoch'],
+            )  # check
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):
@@ -172,13 +176,14 @@ class LwF(BaseLearner):
                 # print(targets)
                 # print("---------self._known_classes-------")
                 # print(self._known_classes)
-                # print("---------logits[:, : self._known_classes + 6]-------")
-                # print(logits[:, : self._known_classes + 5].shape)
+                # print("---------logits[:, : self._known_classes]-------")
+                # print(logits.shape)
                 # print("---------self._old_network(inputs)[ logits]-------")
                 # print(self._old_network(inputs)["logits"].shape)
                 loss_clf = F.cross_entropy(
                     logits[:, self._known_classes :], fake_targets
                 )
+
                 if self.args['scenario'] == 'dcl':
                     loss_kd = _KD_loss(
                         logits[:, : self._known_classes + 6],
@@ -187,7 +192,7 @@ class LwF(BaseLearner):
                     )
                 else:
                     loss_kd = _KD_loss(
-                        logits[:, : self._known_classes+5 ],
+                        logits[:, : self._known_classes + 5 ],
                         self._old_network(inputs)["logits"],
                         self.args['T'],
                     )

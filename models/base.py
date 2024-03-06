@@ -225,7 +225,7 @@ class BaseLearner(object):
                     np.arange(self._known_classes, self._total_classes),
                     source="train",
                     mode="train",
-                    appendent=self._get_memory(),
+
                     domainTrans=self.domainTrans,
                     domain_type=self.domain[cur_task]
                 )
@@ -235,7 +235,7 @@ class BaseLearner(object):
 
                 self._network.eval()
                 for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i> 3:
+                    if i> 15:
                         break
                     inputs, targets = inputs.to(self._device), targets.to(self._device)
                     mom_new = (mom_pre * 0.94)
@@ -386,7 +386,6 @@ class BaseLearner(object):
                 [], source="train", mode="test", appendent=(dd, dt),
                 domain_type=self.domain[self._cur_task],
                 domainTrans=self.domainTrans
-
             )
             idx_loader = DataLoader(
                 idx_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=4

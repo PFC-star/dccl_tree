@@ -32,7 +32,7 @@ class Joint(BaseLearner):
         self.weight_decay = args['weight_decay']
         self.num_workers = args['num_workers']
 
-    def after_task(self):
+    def after_task(self,data_manager):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
 
@@ -43,7 +43,7 @@ class Joint(BaseLearner):
         )
 
 
-        self._total_classes = 100
+        self._total_classes = 10
         self._known_classes = 0
 
         self._network.update_fc(self._total_classes)
