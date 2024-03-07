@@ -107,9 +107,13 @@ class LwFWDUA(BaseLearner):
                 momentum=0.9,
                 weight_decay=self.args['weight_decay'],
             )# 1e-5
-            scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
-            )
+            # scheduler = optim.lr_scheduler.MultiStepLR(
+            #     optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
+            # )
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=self.args['init_epoch'],
+            )  # check
             self._update_representation(train_loader, test_loader, optimizer, scheduler)
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler):

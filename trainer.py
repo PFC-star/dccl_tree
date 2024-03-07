@@ -449,14 +449,14 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","debug")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
-        sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'
+        sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl' + "debug"
         if args['scenario']=='dcl':
-            sheet_name = args['model_name'] +" "+args['convnet_type']+" " +'dcl'
+            sheet_name = args['model_name'] +" "+args['convnet_type']+" " +'dcl' + "debug"
     else:
-        sheet_name = args['model_name'] +" "+args['convnet_type']+" " +  'ccl'
+        sheet_name = args['model_name'] +" "+args['convnet_type']+" " +  'ccl' + "debug"
     _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
     writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
 

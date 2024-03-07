@@ -235,10 +235,10 @@ class BaseLearner(object):
 
                 self._network.eval()
                 for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i>3:
+                    if i> 1:
                         break
                     inputs, targets = inputs.to(self._device), targets.to(self._device)
-                    mom_new = (mom_pre * 0.97)
+                    mom_new = (mom_pre * 0.94)
                     for m in self._network.modules():
                         # print(m)
                         if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
