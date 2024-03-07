@@ -94,12 +94,15 @@ def _train(args):
         args["increment"],
     )
     model = factory.get_model(args["model_name"], args)
-    setattr(model.__class__, 'bn_stats', {})
-    cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
 
+
+    setattr(model.__class__, 'bn_stats', {})
+
+    cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
+    cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager, save_conf=True)
     cnn_acc_list =[]
 
-    for task in range(data_manager.nb_tasks):
+    for task in range(0,data_manager.nb_tasks):
         start_time = time.time()
         logging.info(f"Start time:{start_time}")
         subResult = []
@@ -436,6 +439,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     # 调用插入数组函数
     for i,model_acc in enumerate(data):
         model_acc.insert(0, total_acc[i])
+        print("total_acc_{}: ".format(i),total_acc[i])
         model_acc.insert(0,total_forget[i])
         model_acc.insert(2, model_size[i])
         model_acc.insert(3, time_list[i])
@@ -449,7 +453,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","debug")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","normal")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
         sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl' + "debug"

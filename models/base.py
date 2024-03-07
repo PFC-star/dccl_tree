@@ -215,10 +215,10 @@ class BaseLearner(object):
 
 
 
-            if self.args['model_name'] == "derwdua" or "icarlwdua" or "lwfwdua":
+            if self.args['model_name'] == "derwdua" or self.args['model_name'] == "icarlwdua" or self.args['model_name'] == "lwfwdua":
                 # 要将所有的分支的域换成对应的BN域
                 # self.loadBN(self._network,self._cur_task,cur_task)
-                print("----------------DUA---------------------------")
+                print("----------------DDDDDDUUUUUUUUAAAAAA---------------------------")
                 mom_pre = 0.1
 
                 train_dataset = data_manager.get_dataset(
@@ -235,7 +235,7 @@ class BaseLearner(object):
 
                 self._network.eval()
                 for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i> 1:
+                    if i> 3:
                         break
                     inputs, targets = inputs.to(self._device), targets.to(self._device)
                     mom_new = (mom_pre * 0.94)

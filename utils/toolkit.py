@@ -125,12 +125,12 @@ def save_fc(args, model):
 
 def save_model(args, model):
     #used in PODNet
-    _path = os.path.join(args['logfilename'], "model.pt")
+    _path = os.path.join(args['logfilename'], "model_params.pt")
     if len(args['device']) > 1:
         weight = model._network   
     else:
         weight = model._network.cpu()
-    torch.save(weight, _path)
+    torch.save(weight.state_dict(), _path)
     param_size = 0
     buffer_size = 0
     for param in model._network.parameters():

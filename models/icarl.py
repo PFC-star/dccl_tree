@@ -10,7 +10,7 @@ from models.base import BaseLearner
 from utils.inc_net import IncrementalNet
 from utils.inc_net import CosineIncrementalNet
 from utils.toolkit import target2onehot, tensor2numpy
-
+import  os
 
 
 
@@ -20,6 +20,7 @@ class iCaRL(BaseLearner):
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
     def after_task(self,data_manager):
+
         self.build_rehearsal_memory(data_manager, self.samples_per_class)
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
@@ -73,6 +74,7 @@ class iCaRL(BaseLearner):
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
+    
 
     def _train(self, train_loader, test_loader):
         self._network.to(self._device)
@@ -103,7 +105,7 @@ class iCaRL(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler)
+                self._init_train(train_loader, test_loader, optimizer, scheduler=None)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -119,55 +121,58 @@ class iCaRL(BaseLearner):
                 optimizer,
                 T_max=self.args['init_epoch'],
             ) #check
-            self._update_representation(train_loader, test_loader, optimizer, scheduler)
+            self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler):
-        prog_bar = tqdm(range(self.args['init_epoch']))
-        for _, epoch in enumerate(prog_bar):
-            self._network.train()
-            losses = 0.0
-            correct, total = 0, 0
-            for i, (_, inputs, targets) in enumerate(train_loader):
-                inputs, targets = inputs.to(self._device), targets.to(self._device)
-                logits = self._network(inputs)["logits"]
+    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+        # prog_bar = tqdm(range(self.args['init_epoch']))
+        _path = os.path.join("model_params_finetune_100.pt")
+        # torch.load(_path, self._network.state_dict())
+        self._network.module.load_state_dict(torch.load(_path))
+        # for _, epoch in enumerate(prog_bar):
+        #     self._network.train()
+        #     losses = 0.0
+        #     correct, total = 0, 0
+        #     for i, (_, inputs, targets) in enumerate(train_loader):
+        #         inputs, targets = inputs.to(self._device), targets.to(self._device)
+        #         logits = self._network(inputs)["logits"]
+        #
+        #         loss = F.cross_entropy(logits, targets)
+        #         optimizer.zero_grad()
+        #         loss.backward()
+        #         optimizer.step()
+        #         losses += loss.item()
+        #
+        #         _, preds = torch.max(logits, dim=1)
+        #         correct += preds.eq(targets.expand_as(preds)).cpu().sum()
+        #         total += len(targets)
+        #
+        #     # scheduler.step()
+        #     train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
+        #
+        #     if epoch % 5 == 0:
+        #         info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
+        #             self._cur_task,
+        #             epoch + 1,
+        #             self.args['init_epoch'],
+        #             losses / len(train_loader),
+        #             train_acc,
+        #
+        #         )
+        #     else:
+        #         test_acc = self._compute_accuracy(self._network, test_loader)
+        #         info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+        #             self._cur_task,
+        #             epoch + 1,
+        #             self.args['init_epoch'],
+        #             losses / len(train_loader),
+        #             train_acc,
+        #             test_acc,
+        #         )
+        #     prog_bar.set_description(info)
+        #
+        # logging.info(info)
 
-                loss = F.cross_entropy(logits, targets)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                losses += loss.item()
-
-                _, preds = torch.max(logits, dim=1)
-                correct += preds.eq(targets.expand_as(preds)).cpu().sum()
-                total += len(targets)
-
-            scheduler.step()
-            train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-
-            if epoch % 5 == 0:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args['init_epoch'],
-                    losses / len(train_loader),
-                    train_acc,
-
-                )
-            else:
-                test_acc = self._compute_accuracy(self._network, test_loader)
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args['init_epoch'],
-                    losses / len(train_loader),
-                    train_acc,
-                    test_acc,
-                )
-            prog_bar.set_description(info)
-
-        logging.info(info)
-
-    def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
+    def _update_representation(self, train_loader, test_loader, optimizer, scheduler=None):
         prog_bar = tqdm(range(self.args["epochs"]))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
@@ -203,7 +208,7 @@ class iCaRL(BaseLearner):
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                 total += len(targets)
 
-            scheduler.step()
+            # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
             if epoch % 5 == 0:
                 test_acc = self._compute_accuracy(self._network, test_loader)

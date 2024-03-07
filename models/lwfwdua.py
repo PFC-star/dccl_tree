@@ -11,7 +11,7 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-
+import os
 
 
 class LwFWDUA(BaseLearner):
@@ -99,7 +99,7 @@ class LwFWDUA(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler)
+                self._init_train(train_loader, test_loader, optimizer, scheduler=None)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -114,9 +114,9 @@ class LwFWDUA(BaseLearner):
                 optimizer,
                 T_max=self.args['init_epoch'],
             )  # check
-            self._update_representation(train_loader, test_loader, optimizer, scheduler)
+            self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler):
+    def _init_train_1(self, train_loader, test_loader, optimizer, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
@@ -128,15 +128,15 @@ class LwFWDUA(BaseLearner):
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
 
-                # add
+                # # add
 
-                mom_new = (mom_pre * 0.94)
-                for m in self._network.modules():
-                    # print(m)
-                    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                        m.train()
-                        m.momentum = mom_new + 0.005
-                mom_pre = mom_new
+                # mom_new = (mom_pre * 0.94)
+                # for m in self._network.modules():
+                #     # print(m)
+                #     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                #         m.train()
+                #         m.momentum = mom_new + 0.005
+                # mom_pre = mom_new
 
                 # add
                 logits = self._network(inputs)["logits"]
@@ -151,7 +151,7 @@ class LwFWDUA(BaseLearner):
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                 total += len(targets)
 
-            scheduler.step()
+            # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
             if epoch % 5 == 0:
@@ -175,8 +175,11 @@ class LwFWDUA(BaseLearner):
             prog_bar.set_description(info)
 
         logging.info(info)
-
-    def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
+    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+        _path = os.path.join("model_params_finetune_100.pt")
+        self._network.module.load_state_dict(torch.load(_path))
+        print("-----Load Model------")
+    def _update_representation(self, train_loader, test_loader, optimizer, scheduler=None):
 
         prog_bar = tqdm(range(self.args['epochs']))
         for _, epoch in enumerate(prog_bar):
@@ -192,13 +195,14 @@ class LwFWDUA(BaseLearner):
                 # print(targets)
                 # print("---------self._known_classes-------")
                 # print(self._known_classes)
-                # print("---------logits[:, : self._known_classes + 6]-------")
-                # print(logits[:, : self._known_classes + 5].shape)
+                # print("---------logits[:, : self._known_classes]-------")
+                # print(logits.shape)
                 # print("---------self._old_network(inputs)[ logits]-------")
                 # print(self._old_network(inputs)["logits"].shape)
                 loss_clf = F.cross_entropy(
                     logits[:, self._known_classes :], fake_targets
                 )
+
                 if self.args['scenario'] == 'dcl':
                     loss_kd = _KD_loss(
                         logits[:, : self._known_classes + 6],
@@ -207,7 +211,7 @@ class LwFWDUA(BaseLearner):
                     )
                 else:
                     loss_kd = _KD_loss(
-                        logits[:, : self._known_classes+5 ],
+                        logits[:, : self._known_classes + 5 ],
                         self._old_network(inputs)["logits"],
                         self.args['T'],
                     )
@@ -225,7 +229,7 @@ class LwFWDUA(BaseLearner):
                     correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                     total += len(targets)
 
-            scheduler.step()
+            # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
             if epoch % 5 == 0:
                 test_acc = self._compute_accuracy(self._network, test_loader)

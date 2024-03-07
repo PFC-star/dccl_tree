@@ -11,7 +11,7 @@ from utils.inc_net import IncrementalNet
 from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
-
+import os
 
 
 class LwF(BaseLearner):
@@ -98,7 +98,7 @@ class LwF(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler)
+                self._init_train(train_loader, test_loader, optimizer, scheduler=None)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -113,9 +113,9 @@ class LwF(BaseLearner):
                 optimizer,
                 T_max=self.args['init_epoch'],
             )  # check
-            self._update_representation(train_loader, test_loader, optimizer, scheduler)
+            self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler):
+    def _init_train_1(self, train_loader, test_loader, optimizer, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
@@ -135,7 +135,7 @@ class LwF(BaseLearner):
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                 total += len(targets)
 
-            scheduler.step()
+            # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
             if epoch % 5 == 0:
@@ -159,8 +159,11 @@ class LwF(BaseLearner):
             prog_bar.set_description(info)
 
         logging.info(info)
-
-    def _update_representation(self, train_loader, test_loader, optimizer, scheduler):
+    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+        _path = os.path.join("model_params_finetune_100.pt")
+        self._network.module.load_state_dict(torch.load(_path))
+        print("-----Load Model------")
+    def _update_representation(self, train_loader, test_loader, optimizer, scheduler=None):
 
         prog_bar = tqdm(range(self.args['epochs']))
         for _, epoch in enumerate(prog_bar):
@@ -210,7 +213,7 @@ class LwF(BaseLearner):
                     correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                     total += len(targets)
 
-            scheduler.step()
+            # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
             if epoch % 5 == 0:
                 test_acc = self._compute_accuracy(self._network, test_loader)
