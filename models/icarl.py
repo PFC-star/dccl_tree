@@ -19,9 +19,9 @@ class iCaRL(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self,data_manager):
-
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
+    def after_task(self,data_manager,task):
+        if task ==0:
+            self.build_rehearsal_memory(data_manager, self.samples_per_class)
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
 
@@ -125,8 +125,9 @@ class iCaRL(BaseLearner):
 
     def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
         # prog_bar = tqdm(range(self.args['init_epoch']))
-        _path = os.path.join("model_params_finetune_100.pt")
+        # _path = os.path.join("model_params_finetune_100.pt")
         # torch.load(_path, self._network.state_dict())
+        _path = os.path.join("logs/benchmark/cifar10/finetune/0308-08-21-16-856_cifar10_resnet26_cifar_2024_B6_Inc1","model_params.pt")
         self._network.module.load_state_dict(torch.load(_path))
         # for _, epoch in enumerate(prog_bar):
         #     self._network.train()
@@ -220,6 +221,7 @@ class iCaRL(BaseLearner):
                     train_acc,
                     test_acc,
                 )
+                print("test_acc: ",test_acc)
             else:
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,

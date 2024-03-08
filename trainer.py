@@ -125,7 +125,7 @@ def _train(args):
         cnn_acc_list.append(cnn_accy_dict)
         print("task {}:".format(task))
         print(cnn_accy_dict)
-        model.after_task(data_manager)
+        model.after_task(data_manager,task)
         cnn_accy = cnn_accy_dict['dataset ID {}:'.format(task)]
         nme_accy = nme_accy_dict['dataset ID {}:'.format(task)]
         if nme_accy is not None:
@@ -453,7 +453,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","normal")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","debug381")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
         sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl' + "debug"

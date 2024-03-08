@@ -19,7 +19,7 @@ class LwFWDUA(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self,data_manager):
+    def after_task(self,data_manager,task):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
         logging.info("Exemplar size: {}".format(self.exemplar_size))

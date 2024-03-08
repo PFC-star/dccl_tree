@@ -33,7 +33,7 @@ class Finetune(BaseLearner):
         self.weight_decay = args['weight_decay']
         self.num_workers = args['num_workers']
 
-    def after_task(self,data_manager):
+    def after_task(self,data_manager,task):
         self._known_classes = self._total_classes
 
     def incremental_train(self, data_manager):
@@ -124,7 +124,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
 
-    def _init_train_1(self, train_loader, test_loader, optimizer, scheduler=None):
+    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
@@ -147,7 +147,7 @@ class Finetune(BaseLearner):
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
-            if epoch % 5 == 0:
+            if epoch % 5 != 0:
                 info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
                     self._cur_task,
                     epoch + 1,
@@ -165,6 +165,7 @@ class Finetune(BaseLearner):
                     train_acc,
                     test_acc,
                 )
+                print("test_acc:",test_acc)
             prog_bar.set_description(info)
 
         logging.info(info)
@@ -173,7 +174,7 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer, scheduler=None):
         _path = os.path.join("model_params_finetune_100.pt")
         self._network.module.load_state_dict(torch.load(_path))
         print("-----Load Model------")

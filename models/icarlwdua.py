@@ -19,9 +19,10 @@ class iCaRLWDUA(BaseLearner):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-    def after_task(self,data_manager):
+    def after_task(self,data_manager,task):
 
-        self.build_rehearsal_memory(data_manager, self.samples_per_class)
+        if task == 0:
+            self.build_rehearsal_memory(data_manager, self.samples_per_class)
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
 
