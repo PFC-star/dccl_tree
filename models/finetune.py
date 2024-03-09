@@ -12,8 +12,8 @@ from models.base import BaseLearner
 from utils.toolkit import target2onehot, tensor2numpy
 
 import os
-
-
+import copy
+from utils.toolkit import save_model_ing
 class Finetune(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
@@ -32,6 +32,7 @@ class Finetune(BaseLearner):
         self.batch_size = args['batch_size']
         self.weight_decay = args['weight_decay']
         self.num_workers = args['num_workers']
+        self.total_acc_max = -1
 
     def after_task(self,data_manager,task):
         self._known_classes = self._total_classes
@@ -76,11 +77,11 @@ class Finetune(BaseLearner):
 
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-        self._train(self.train_loader, self.test_loader)
+        self._train(self.train_loader, self.test_loader,data_manager=data_manager)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
-    def _train(self, train_loader, test_loader):
+    def _train(self, train_loader, test_loader,data_manager):
         self._network.to(self._device)
         print("domain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
@@ -107,7 +108,7 @@ class Finetune(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler=None)
+                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=None)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -122,10 +123,11 @@ class Finetune(BaseLearner):
             #     optimizer,
             #     T_max=self.args['init_epoch'],
             # )  # check
-            self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
+            self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
+
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -147,25 +149,28 @@ class Finetune(BaseLearner):
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
-            if epoch % 5 != 0:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args['init_epoch'],
-                    losses / len(train_loader),
-                    train_acc,
-                )
-            else:
-                test_acc = self._compute_accuracy(self._network, test_loader)
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args['init_epoch'],
-                    losses / len(train_loader),
-                    train_acc,
-                    test_acc,
-                )
-                print("test_acc:",test_acc)
+
+
+
+            test_acc = self._compute_accuracy(self._network, test_loader)
+            # total_acc  = self.compute_task_acc(data_manager)
+            # if total_acc >= self.total_acc_max:
+            #     self.best_model = copy.deepcopy(self._network)
+            #     save_model_ing(args=self.args, model=self.best_model)
+            #
+            # self.total_acc_max = np.max(total_acc,self.total_acc_max)
+
+            info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+                self._cur_task,
+                epoch + 1,
+                self.args['init_epoch'],
+                losses / len(train_loader),
+                train_acc,
+                test_acc,
+            )
+            print("test_acc:",test_acc)
+            # print("total_acc_max:", self.total_acc_max)
+            # print("total_acc:", total_acc)
             prog_bar.set_description(info)
 
         logging.info(info)
@@ -174,11 +179,13 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train_1(self, train_loader, test_loader, optimizer, scheduler=None):
-        _path = os.path.join("model_params_finetune_100.pt")
-        self._network.module.load_state_dict(torch.load(_path))
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+        # _path = os.path.join("model_params_finetune_100.pt")
+        _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1","model_params.pt")
+        self._network.module.load_state_dict(torch.load(_path)
+                                             )
         print("-----Load Model------")
-    def _update_representation(self, train_loader, test_loader, optimizer, scheduler=None ):
+    def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
 
         prog_bar = tqdm(range(self.epochs))
         for _, epoch in enumerate(prog_bar):
@@ -207,23 +214,28 @@ class Finetune(BaseLearner):
 
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-            if epoch % 5 == 0:
-                test_acc = self._compute_accuracy(self._network, test_loader)
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.epochs,
-                    losses / len(train_loader),
-                    train_acc,
-                    test_acc,
-                )
-            else:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.epochs,
-                    losses / len(train_loader),
-                    train_acc,
-                )
+            test_acc = self._compute_accuracy(self._network, test_loader)
+            if self._cur_task ==4:
+                total_acc = self.compute_task_acc(data_manager,self.total_acc_max)
+                if total_acc >= self.total_acc_max:
+                    self.best_model = copy.deepcopy(self._network)
+                    save_model_ing(args=self.args, model=self.best_model)
+
+                    self.total_acc_max =  total_acc
+                    print("total_acc_max:", self.total_acc_max)
+                    print("total_acc:", total_acc)
+
+            info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+                self._cur_task,
+                epoch + 1,
+                self.args['init_epoch'],
+                losses / len(train_loader),
+                train_acc,
+                test_acc,
+            )
+            print("test_acc:", test_acc)
+
             prog_bar.set_description(info)
+
         logging.info(info)
+

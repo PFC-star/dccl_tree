@@ -20,7 +20,7 @@
     "init_weight_decay" : 0.0005,
 
 
-    "epochs" :20,
+    "epochs" :50,
     "lrate" : 0.1,
     "milestones" : [80, 120],
     "lrate_decay" : 0.1,

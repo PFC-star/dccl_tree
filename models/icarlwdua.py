@@ -12,16 +12,16 @@ from utils.inc_net import CosineIncrementalNet
 from utils.toolkit import target2onehot, tensor2numpy
 import  os
 
-
-
+import copy
+from utils.toolkit import save_model_ing
 class iCaRLWDUA(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
+        self.total_acc_max = -1
     def after_task(self,data_manager,task):
-
-        if task == 0:
+        if task ==0:
             self.build_rehearsal_memory(data_manager, self.samples_per_class)
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
@@ -70,18 +70,15 @@ class iCaRLWDUA(BaseLearner):
 
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-        self._train(self.train_loader, self.test_loader)
-
+        self._train(self.train_loader, self.test_loader,data_manager)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
-    
-
-    def _train(self, train_loader, test_loader):
+    def _train(self, train_loader, test_loader,data_manager):
         self._network.to(self._device)
         if self._old_network is not None:
             self._old_network.to(self._device)
-        print("\ndomain_type:", self.domain[self._cur_task])
+        print("\ndomain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -106,7 +103,7 @@ class iCaRLWDUA(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer, scheduler=None)
+                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=None)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -117,64 +114,15 @@ class iCaRLWDUA(BaseLearner):
             # scheduler = optim.lr_scheduler.MultiStepLR(
             #     optimizer=optimizer, milestones=self.args['milestones'], gamma=self.args['lrate_decay']
             # )
+            # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            #     optimizer,
+            #     T_max=self.args['init_epoch'],
+            # )  # check
+            self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer,
-                T_max=self.args['init_epoch'],
-            ) #check
-            self._update_representation(train_loader, test_loader, optimizer, scheduler=None)
-
-    def _init_train(self, train_loader, test_loader, optimizer, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
-        _path = os.path.join("model_params_finetune_100.pt")
-        # torch.load(_path, self._network.state_dict())
-        self._network.module.load_state_dict(torch.load(_path))
-        # for _, epoch in enumerate(prog_bar):
-        #     self._network.train()
-        #     losses = 0.0
-        #     correct, total = 0, 0
-        #     for i, (_, inputs, targets) in enumerate(train_loader):
-        #         inputs, targets = inputs.to(self._device), targets.to(self._device)
-        #         logits = self._network(inputs)["logits"]
-        #
-        #         loss = F.cross_entropy(logits, targets)
-        #         optimizer.zero_grad()
-        #         loss.backward()
-        #         optimizer.step()
-        #         losses += loss.item()
-        #
-        #         _, preds = torch.max(logits, dim=1)
-        #         correct += preds.eq(targets.expand_as(preds)).cpu().sum()
-        #         total += len(targets)
-        #
-        #     # scheduler.step()
-        #     train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-        #
-        #     if epoch % 5 == 0:
-        #         info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-        #             self._cur_task,
-        #             epoch + 1,
-        #             self.args['init_epoch'],
-        #             losses / len(train_loader),
-        #             train_acc,
-        #
-        #         )
-        #     else:
-        #         test_acc = self._compute_accuracy(self._network, test_loader)
-        #         info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
-        #             self._cur_task,
-        #             epoch + 1,
-        #             self.args['init_epoch'],
-        #             losses / len(train_loader),
-        #             train_acc,
-        #             test_acc,
-        #         )
-        #     prog_bar.set_description(info)
-        #
-        # logging.info(info)
 
-    def _update_representation(self, train_loader, test_loader, optimizer, scheduler=None):
-        prog_bar = tqdm(range(self.args["epochs"]))
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -185,17 +133,91 @@ class iCaRLWDUA(BaseLearner):
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
 
-                # # add
-                # mom_new = (mom_pre * 0.94)
-                # for m in self._network.modules():
-                #     # print(m)
-                #     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                #         m.train()
-                #         m.momentum = mom_new + 0.005
-                # mom_pre = mom_new
-                # # add
+                # add
+                mom_new = (mom_pre * 0.94)
+                for m in self._network.modules():
+                    # print(m)
+                    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                        m.train()
+                        m.momentum = mom_new + 0.005
+                mom_pre = mom_new
+                # add
                 logits = self._network(inputs)["logits"]
 
+                loss = F.cross_entropy(logits, targets)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                losses += loss.item()
+
+                _, preds = torch.max(logits, dim=1)
+                correct += preds.eq(targets.expand_as(preds)).cpu().sum()
+                total += len(targets)
+
+            # scheduler.step()
+            train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
+
+
+
+
+            test_acc = self._compute_accuracy(self._network, test_loader)
+            # total_acc  = self.compute_task_acc(data_manager)
+            # if total_acc >= self.total_acc_max:
+            #     self.best_model = copy.deepcopy(self._network)
+            #     save_model_ing(args=self.args, model=self.best_model)
+            #
+            # self.total_acc_max = np.max(total_acc,self.total_acc_max)
+
+            info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+                self._cur_task,
+                epoch + 1,
+                self.args['init_epoch'],
+                losses / len(train_loader),
+                train_acc,
+                test_acc,
+            )
+            print("test_acc:",test_acc)
+            # print("total_acc_max:", self.total_acc_max)
+            # print("total_acc:", total_acc)
+            prog_bar.set_description(info)
+
+        logging.info(info)
+
+        # # save checkpoint for fair comparison & save runing time
+        # test_acc = self._compute_accuracy(self._network, test_loader)
+        # self.save_checkpoint(test_acc)
+        # logging.info("Save checkpoint successfully!")
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+        # _path = os.path.join("model_params_finetune_100.pt")
+        _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1","model_params.pt")
+        self._network.module.load_state_dict(torch.load(_path)
+                                             )
+        print("-----Load Model------")
+    def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
+
+        prog_bar = tqdm(range(self.args['epochs']))
+        for _, epoch in enumerate(prog_bar):
+            self._network.train()
+            losses = 0.0
+            correct, total = 0, 0
+            # add
+            mom_pre = 0.1
+            # add
+            for i, (_, inputs, targets) in enumerate(train_loader):
+                inputs, targets = inputs.to(self._device), targets.to(self._device)
+
+                # add
+
+                mom_new = (mom_pre * 0.94)
+                for m in self._network.modules():
+                    # print(m)
+                    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                        m.train()
+                        m.momentum = mom_new + 0.005
+                mom_pre = mom_new
+
+                # add
+                logits = self._network(inputs)["logits"]
                 loss_clf = F.cross_entropy(logits, targets)
 
 
@@ -225,25 +247,29 @@ class iCaRLWDUA(BaseLearner):
 
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-            if epoch % 5 == 0:
-                test_acc = self._compute_accuracy(self._network, test_loader)
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args["epochs"],
-                    losses / len(train_loader),
-                    train_acc,
-                    test_acc,
-                )
-            else:
-                info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}".format(
-                    self._cur_task,
-                    epoch + 1,
-                    self.args["epochs"],
-                    losses / len(train_loader),
-                    train_acc,
-                )
+            test_acc = self._compute_accuracy(self._network, test_loader)
+            if self._cur_task ==4:
+                total_acc = self.compute_task_acc(data_manager,self.total_acc_max)
+                if total_acc >= self.total_acc_max:
+                    self.best_model = copy.deepcopy(self._network)
+                    save_model_ing(args=self.args, model=self.best_model)
+
+                    self.total_acc_max =  total_acc
+                    print("total_acc_max:", self.total_acc_max)
+                    print("total_acc:", total_acc)
+
+            info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
+                self._cur_task,
+                epoch + 1,
+                self.args['init_epoch'],
+                losses / len(train_loader),
+                train_acc,
+                test_acc,
+            )
+            print("test_acc:", test_acc)
+
             prog_bar.set_description(info)
+
         logging.info(info)
 
 

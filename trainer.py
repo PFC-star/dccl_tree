@@ -99,7 +99,7 @@ def _train(args):
     setattr(model.__class__, 'bn_stats', {})
 
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
-    cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager, save_conf=True)
+    # cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager, save_conf=True)
     cnn_acc_list =[]
 
     for task in range(0,data_manager.nb_tasks):
@@ -154,6 +154,7 @@ def _train(args):
         end_time = time.time()
         logging.info(f"End Time:{end_time}")
         cost_time = end_time - start_time
+
         print("save model {}".format(task))
         model_size.append(save_model(args, model))
         time_list.append(cost_time)
@@ -168,6 +169,7 @@ def _train(args):
     if args['model_name'] not in ["podnet", "coil"]:
         save_fc(args, model)
     else:
+
         model_size.append(save_model(args, model))
 
 def _set_device(args):
@@ -207,7 +209,7 @@ def save_time(args, cost_time):
 def save_results(args, cnn_curve, nme_curve, no_nme=False):
     cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
     nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
-    
+
     #-------CNN TOP1----------
     _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
     os.makedirs(_log_dir, exist_ok=True)
@@ -264,7 +266,7 @@ def save_results(args, cnn_curve, nme_curve, no_nme=False):
                 f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
                 for _acc in nme_top1[:-1]:
                     f.write(f"{_acc},")
-                f.write(f"{nme_top1[-1]} \n")       
+                f.write(f"{nme_top1[-1]} \n")
 
         #-------NME TOP5----------
         _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top5")
@@ -441,8 +443,8 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
         model_acc.insert(0, total_acc[i])
         print("total_acc_{}: ".format(i),total_acc[i])
         model_acc.insert(0,total_forget[i])
-        model_acc.insert(2, model_size[i])
-        model_acc.insert(3, time_list[i])
+        # model_acc.insert(2, model_size[i])
+        model_acc.insert(0, time_list[i])
 
     argsKeyList = []
     argsValueList = []
@@ -453,14 +455,14 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","debug381")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","final")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
-        sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl' + "debug"
+        sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'
         if args['scenario']=='dcl':
-            sheet_name = args['model_name'] +" "+args['convnet_type']+" " +'dcl' + "debug"
+            sheet_name = args['model_name'] +" "+args['convnet_type']+" " +'dcl'
     else:
-        sheet_name = args['model_name'] +" "+args['convnet_type']+" " +  'ccl' + "debug"
+        sheet_name = args['model_name'] +" "+args['convnet_type']+" " +  'ccl'
     _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
     writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
 
