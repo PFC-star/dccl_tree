@@ -205,14 +205,12 @@ class LwFWDUA(BaseLearner):
             for i, (_, inputs, targets) in enumerate(train_loader):
                 inputs, targets = inputs.to(self._device), targets.to(self._device)
 
-                # add
-
-                mom_new = (mom_pre * 0.94)
+                mom_new = (mom_pre * 0.9)
                 for m in self._network.modules():
                     # print(m)
                     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
                         m.train()
-                        m.momentum = mom_new + 0.005
+                        m.momentum = mom_new + 0.01
                 mom_pre = mom_new
 
                 # add

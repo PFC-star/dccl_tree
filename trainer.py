@@ -455,7 +455,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","final")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","final5")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
         sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'
