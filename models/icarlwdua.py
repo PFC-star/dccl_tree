@@ -34,11 +34,18 @@ class iCaRLWDUA(BaseLearner):
             self._cur_task
         )
         if self.args['scenario'] == 'dcl':
-            self._total_classes = 6
-            self._known_classes = 0
+            if self.args['dataset'] == 'cifar10':
+                self._total_classes = 6
+                self._known_classes = 0
+            if self.args['dataset'] == 'cifar100':
+                self._total_classes = 60
+                self._known_classes = 0
         else:
             if self._cur_task != 0:
-                self._known_classes = self._known_classes - 5
+                if self.args['dataset'] == 'cifar10':
+                    self._known_classes = self._known_classes - 5
+                if self.args['dataset'] == 'cifar100':
+                    self._known_classes = self._known_classes - 50
         self._network.update_fc(self._total_classes)
 
         logging.info(
@@ -189,7 +196,12 @@ class iCaRLWDUA(BaseLearner):
         # logging.info("Save checkpoint successfully!")
     def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
-        _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1","model_params.pt")
+        if self.args['dataset'] == "cifar10":
+            _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
+                                 "model_params.pt")
+        if self.args['dataset'] == "cifar100":
+            _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+                                 "model_params.pt")
         self._network.module.load_state_dict(torch.load(_path)
                                              )
         print("-----Load Model------")
@@ -222,17 +234,36 @@ class iCaRLWDUA(BaseLearner):
 
 
                 if self.args['scenario'] == 'dcl':
-                    loss_kd = _KD_loss(
-                        logits[:, : self._known_classes + 6],
-                        self._old_network(inputs)["logits"],
-                        self.args["T"],
-                    )
+
+                    if self.args['dataset'] == 'cifar10':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 6],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
+                    if self.args['dataset'] == 'cifar100':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 60],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
+
+
                 else:
-                    loss_kd = _KD_loss(
-                        logits[:, : self._known_classes + 5],
-                        self._old_network(inputs)["logits"],
-                        self.args["T"],
-                    )
+
+                    if self.args['dataset'] == 'cifar10':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 5],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
+                    if self.args['dataset'] == 'cifar100':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 50],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
+
 
                 loss =  loss_kd + loss_clf
 
