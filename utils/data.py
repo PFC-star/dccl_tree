@@ -1,7 +1,7 @@
 import numpy as np
 from torchvision import datasets, transforms
 from utils.toolkit import split_images_labels
-
+import os
 
 class iData(object):
     train_trsf = []
@@ -274,8 +274,8 @@ class iDomainNet(iData):
     ]
 
 
-    def __init__(self, args):
-        self.args = args
+    def __init__(self):
+
         class_order = np.arange(6 * 345).tolist()
         self.class_order = class_order
         self.domain_names = ["clipart", "infograph", "painting", "quickdraw", "real", "sketch", ]
