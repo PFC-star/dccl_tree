@@ -59,11 +59,16 @@ class Finetune(BaseLearner):
             if self.args['dataset']== 'cifar100':
                 self._total_classes = 60
                 self._known_classes = 0
+            if self.args['dataset']== 'domainNet':
+                self._total_classes = 60
+                self._known_classes = 0
         else:
             if self._cur_task != 0:
                 if self.args['dataset'] == 'cifar10':
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
+                    self._known_classes = self._known_classes - 50
+                if self.args['dataset'] == 'domainNet':
                     self._known_classes = self._known_classes - 50
         if  self._cur_task==0:
             pass
@@ -151,7 +156,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -205,7 +210,7 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
             _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",

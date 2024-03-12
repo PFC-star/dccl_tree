@@ -11,7 +11,7 @@
     "convnet_type": "resnet32",
     "device": ["0","1","2","3"],
     "seed": [2024],
-    "init_epoch" :42,
+    "init_epoch" :500,
     "init_lr" :0.1,
     "init_milestones" : [60, 120, 160],
     "init_lr_decay" : 0.1,
