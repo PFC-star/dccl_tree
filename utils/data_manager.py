@@ -11,7 +11,10 @@ import torch
 class DataManager(object):
     def __init__(self, dataset_name, shuffle, seed, init_cls, increment):
         self.dataset_name = dataset_name
-        self._setup_data(dataset_name, shuffle, seed)
+        if dataset_name=="domainNet":
+            self._setup_data(dataset_name, shuffle, seed,taskID=0)
+        else:
+            self._setup_data_normal(dataset_name, shuffle, seed)
         assert init_cls <= len(self._class_order), "No enough classes."
         self._increments = [init_cls]
         while sum(self._increments) + increment < len(self._class_order):
@@ -22,6 +25,8 @@ class DataManager(object):
         self.seed = seed
     @property
     def nb_tasks(self):
+        if self.dataset_name=="domainNet":
+            return 6
         return len(self._increments)
 
     def get_task_size(self, task):
@@ -219,9 +224,38 @@ class DataManager(object):
             train_data, train_targets, trsf, self.use_path
         ), DummyDataset(val_data, val_targets, trsf, self.use_path)
 
-    def _setup_data(self, dataset_name, shuffle, seed):
+    def _setup_data_normal(self, dataset_name, shuffle, seed):
         idata = _get_idata(dataset_name)
         idata.download_data()
+
+        # Data
+        self._train_data, self._train_targets = idata.train_data, idata.train_targets
+        self._test_data, self._test_targets = idata.test_data, idata.test_targets
+        self.use_path = idata.use_path
+
+        # Transforms
+        self._train_trsf = idata.train_trsf
+        self._test_trsf = idata.test_trsf
+        self._common_trsf = idata.common_trsf
+
+        # Order
+        order = [i for i in range(len(np.unique(self._train_targets)))]
+        if shuffle:
+            np.random.seed(seed)
+            order = np.random.permutation(len(order)).tolist()
+        else:
+            order = idata.class_order
+        self._class_order = order
+        logging.info(self._class_order)
+
+        # Map indices
+        self._train_targets = _map_new_class_index(
+            self._train_targets, self._class_order
+        )
+        self._test_targets = _map_new_class_index(self._test_targets, self._class_order)
+    def _setup_data(self, dataset_name, shuffle, seed,taskID):
+        idata = _get_idata(dataset_name)
+        idata.download_data(taskID=taskID)
 
         # Data
         self._train_data, self._train_targets = idata.train_data, idata.train_targets
@@ -340,7 +374,6 @@ def _get_idata(dataset_name):
         return iDomainNet()
     else:
         raise NotImplementedError("Unknown dataset {}.".format(dataset_name))
-
 
 def pil_loader(path):
     """

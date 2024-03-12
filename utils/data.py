@@ -276,16 +276,19 @@ class iDomainNet(iData):
 
     def __init__(self):
 
-        class_order = np.arange(6 * 345).tolist()
+        class_order = np.arange( 345).tolist()
+        # class_order = np.arange(6 * 345).tolist()
         self.class_order = class_order
         self.domain_names = ["clipart", "infograph", "painting", "quickdraw", "real", "sketch", ]
 
-    def download_data(self):
+    def download_data(self,taskID):
         self.image_list_root = "../datasets/DomainNet/data"
+        self.image_list_paths = [os.path.join(self.image_list_root,  self.domain_names[taskID] + "_" + "train" + ".txt")  ]
 
-        image_list_paths = [os.path.join(self.image_list_root, d + "_" + "train" + ".txt") for d in self.domain_names]
+        print( self.image_list_paths)
+        # image_list_paths = [os.path.join(self.image_list_root, d + "_" + "train" + ".txt") for d in self.domain_names[taskID]]
         imgs = []
-        for taskid, image_list_path in enumerate(image_list_paths):
+        for taskid, image_list_path in enumerate( self.image_list_paths):
             image_list = open(image_list_path).readlines()
             imgs += [(val.split()[0], int(val.split()[1]) + taskid * 345) for val in image_list]
         train_x, train_y = [], []
@@ -295,9 +298,9 @@ class iDomainNet(iData):
         self.train_data = np.array(train_x)
         self.train_targets = np.array(train_y)
 
-        image_list_paths = [os.path.join(self.image_list_root, d + "_" + "test" + ".txt") for d in self.domain_names]
+        self.image_test_list_paths = [os.path.join(self.image_list_root, self.domain_names[taskID] + "_" + "test" + ".txt")   ]
         imgs = []
-        for taskid, image_list_path in enumerate(image_list_paths):
+        for taskid, image_list_path in enumerate(self.image_test_list_paths):
             image_list = open(image_list_path).readlines()
             imgs += [(val.split()[0], int(val.split()[1]) + taskid * 345) for val in image_list]
         train_x, train_y = [], []
@@ -306,3 +309,29 @@ class iDomainNet(iData):
             train_y.append(item[1])
         self.test_data = np.array(train_x)
         self.test_targets = np.array(train_y)
+    # def download_data(self):
+    #     self.image_list_root = "../datasets/DomainNet/data"
+    #
+    #     image_list_paths = [os.path.join(self.image_list_root, d + "_" + "train" + ".txt") for d in self.domain_names]
+    #     imgs = []
+    #     for taskid, image_list_path in enumerate(image_list_paths):
+    #         image_list = open(image_list_path).readlines()
+    #         imgs += [(val.split()[0], int(val.split()[1]) + taskid * 345) for val in image_list]
+    #     train_x, train_y = [], []
+    #     for item in imgs:
+    #         train_x.append(os.path.join(self.image_list_root, item[0]))
+    #         train_y.append(item[1])
+    #     self.train_data = np.array(train_x)
+    #     self.train_targets = np.array(train_y)
+    #
+    #     image_list_paths = [os.path.join(self.image_list_root, d + "_" + "test" + ".txt") for d in self.domain_names]
+    #     imgs = []
+    #     for taskid, image_list_path in enumerate(image_list_paths):
+    #         image_list = open(image_list_path).readlines()
+    #         imgs += [(val.split()[0], int(val.split()[1]) + taskid * 345) for val in image_list]
+    #     train_x, train_y = [], []
+    #     for item in imgs:
+    #         train_x.append(os.path.join(self.image_list_root, item[0]))
+    #         train_y.append(item[1])
+    #     self.test_data = np.array(train_x)
+    #     self.test_targets = np.array(train_y)

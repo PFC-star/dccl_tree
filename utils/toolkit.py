@@ -43,6 +43,8 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
         dataset_name='CIFAR100'
     if increment==1:
         dataset_name='CIFAR10'
+    if increment==25:
+        dataset_name='DomainNet'
 
     assert len(y_pred) == len(y_true), "Data length error."
     dclflag = False
@@ -54,6 +56,10 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
         if np.max(y_true)== 5 and cur_task!=0:
             dclflag=True
             taskID = np.max(y_true) + 1 - 6
+    if dataset_name == 'DomainNet':
+        if np.max(y_true)== 199 and cur_task!=0:
+            dclflag=True
+            taskID = np.max(y_true) + 1 - 200
     all_acc = {}
     # Grouped accuracy
 
@@ -108,7 +114,23 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
                 # print(label)
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
-
+    if dataset_name == 'DomainNet':
+        if np.max(y_true) + 1 == 200 and np.min(y_true) == 0:
+            for class_id in range(0, 200, increment):
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                # print(label)
+                tempTatalacc.append(all_acc_temp[label])
+            all_acc["total"] = np.average(tempTatalacc)
+        else:
+            for class_id in range(cur_task*25, cur_task*25+200, increment):
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                # print(label)
+                tempTatalacc.append(all_acc_temp[label])
+            all_acc["total"] = np.average(tempTatalacc)
     for class_id in range(0, np.max(y_true)+1, increment):
         idxes = np.where(
             np.logical_and(y_true >= class_id, y_true < class_id + increment)
@@ -231,8 +253,11 @@ def loadBestModel(args, task):
             model_path = os.path.join("logs/benchmark/cifar10/finetune/0312-06-30-19-817_cifar10_resnet32_2024_B6_Inc1",
                                  "model_params.pt")  # 80的头
         if args['dataset'] == "cifar100":
-            model_path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
-                                 "model_params.pt")
+            model_path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
+                                 "cifar100_50.pt")
+        if args['dataset'] == "domainNet":
+            model_path = os.path.join("results/benchmark/cnn_top1/domainNet/last80",
+                                 "finetune resnet34_imagenet ccllast .pt")
         return model_path
     # _path = os.path.join(args['logfilename'], "model_params_best.pt")
 

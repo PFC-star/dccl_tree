@@ -25,6 +25,7 @@ from convs.resnet import resnet10 as resnet10_imagenet
 from convs.resnet import resnet26 as resnet26_imagenet
 from convs.resnet import resnet34 as resnet34_imagenet
 from convs.resnet import resnet50 as resnet50_imagenet
+from convs.resnet import resnet32_domainnet as resnet32_domainnet
 
 # FOR AUC & MEMO
 from convs.conv_cifar import get_conv_a2fc as memo_conv2_cifar
@@ -100,6 +101,8 @@ def get_convnet(convnet_type, pretrained=False):
         return resnet34_imagenet()
     elif name == 'resnet50_imagenet':
         return resnet50_imagenet()
+    elif name == 'resnet32_domainnet':
+        return resnet32_domainnet()
     
     elif name == 'memo_conv4':
         g_blcoks, s_blocks = memo_conv4_imagenet()

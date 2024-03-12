@@ -19,7 +19,7 @@ from utils.toolkit import save_model_ing,loadBestModel
 
 
 
-
+# -p benchmark -d 0 1  --debug -model  finetune -dt True --dataset domainNet -net resnet34_imagenet -d 0 1 -init 200 -incre 25
 
 
 
@@ -60,7 +60,7 @@ class Finetune(BaseLearner):
                 self._total_classes = 60
                 self._known_classes = 0
             if self.args['dataset']== 'domainNet':
-                self._total_classes = 60
+                self._total_classes = 200
                 self._known_classes = 0
         else:
             if self._cur_task != 0:
@@ -69,7 +69,10 @@ class Finetune(BaseLearner):
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
                 if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 50
+                    self._known_classes = self._known_classes - 175
+
+
+
         if  self._cur_task==0:
             pass
         else:
@@ -87,6 +90,11 @@ class Finetune(BaseLearner):
         logging.info(
             "domain:{} ".format(self.domain[self._cur_task])
         )
+        if self.args['dataset'] == 'domainNet':
+            data_manager._setup_data('domainNet', False, 2024,self._cur_task)
+
+
+
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
             source="train",
@@ -94,14 +102,15 @@ class Finetune(BaseLearner):
             domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
         )
-        self.train_loader = DataLoader(
-            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
-        )
         test_dataset = data_manager.get_dataset(
             np.arange(0, self._total_classes), source="test", mode="test",
             domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
         )
+        self.train_loader = DataLoader(
+            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
+        )
+
         self.test_loader = DataLoader(
             test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
         )
@@ -218,8 +227,10 @@ class Finetune(BaseLearner):
             _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
                                  "model_params.pt")
         if self.args['dataset'] == "cifar100":
-            _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
-                                 "model_params.pt")
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
+                                      "cifar100_50.pt")
         self._network.module.load_state_dict(torch.load(_path) )
         print("-----Load Model  {}------".format( self._cur_task))
     def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):

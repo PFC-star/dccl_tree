@@ -201,9 +201,16 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
+                # 跑头时
                 model_size.append(save_model(args, model))
+
+
+                # 正常跑时
                 # model_path = loadBestModel(args, task )
                 # model._network.load_state_dict(torch.load(model_path) )
+
+
+                # 都要有
                 cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager,save_conf=False)
 
 

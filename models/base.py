@@ -44,7 +44,7 @@ class BaseLearner(object):
             #     'RandomVerticalFlip',
             # ]
         else:
-            self.domain=['None','None','None','None','None']
+            self.domain=['None','None','None','None','None','None']
         self._memory_size = args["memory_size"]
         self._memory_per_class = args.get("memory_per_class", None)
         self._fixed_memory = args.get("fixed_memory", False)
