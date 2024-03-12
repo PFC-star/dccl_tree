@@ -8,7 +8,7 @@ from utils.toolkit import tensor2numpy, accuracy
 from scipy.spatial.distance import cdist
 import os
 
-
+import pandas as pd
 
 from os.path import exists, join, realpath, split
 import os
@@ -215,7 +215,7 @@ class BaseLearner(object):
 
 
 
-            if self.args['model_name'] == "derwdua" or self.args['model_name'] == "icarlwdua" or self.args['model_name'] == "lwfwdua":
+            if self.args['model_name'] == "derwwdua" or self.args['model_name'] == "icarlwwdua" or self.args['model_name'] == "lwfwwdua":
                 # 要将所有的分支的域换成对应的BN域
                 # self.loadBN(self._network,self._cur_task,cur_task)
                 print("----------------DDDDDDUUUUUUUUAAAAAA---------------------------")
@@ -580,3 +580,213 @@ class BaseLearner(object):
             _class_means[class_idx, :] = mean
 
         self._class_means = _class_means
+    def compute_task_acc(self,data_manager,total_acc_max,task):
+        cnn_acc_list_temp = []
+        cnn_accy_dict_temp, nme_accy_dict_temp = self.eval_task(data_manager=data_manager, save_conf=True)
+        cnn_acc_list_temp.append(cnn_accy_dict_temp)
+            # 解析cnn_acc_list,以最终的格式来排列
+        data = []
+        for taskDict in cnn_acc_list_temp:
+            task_result = []
+            # cnn_acc_dict 为一个task对应的数据
+            for datasetID, datasetResult in taskDict.items():
+                #  v 为dataset ID 0对应的字典
+                acc_list = []
+                for acc in datasetResult['grouped'].items():
+                    k, v = acc
+                    if k == 'new' or k == 'old':
+                        continue
+
+                    acc_list.append(v)
+
+                print(len(acc_list))
+                for i in range(20):
+                    if (len(acc_list) <= 10):
+                        acc_list.append(None)
+                    else:
+                        break
+                task_result.extend(acc_list)
+
+            data.append(task_result)
+        total_acc = []
+        total_forget = []
+        for i, model_acc in enumerate(data):
+            temp_acc_lst = []
+            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+            for j in range(task+1):
+                temp_acc_lst.append(model_acc[j * 11])
+
+            total_acc.append(np.average(temp_acc_lst))
+        for acc in total_acc:
+            total_forget.append(max(total_acc) - acc)
+        # 调用插入数组函数
+        if total_acc_max <  total_acc[-1]:
+            for i, model_acc in enumerate(data):
+                model_acc.insert(0, total_acc[i])
+                print("best_acc : ".format(i), total_acc[i])
+                model_acc.insert(0, total_forget[i])
+
+            argsKeyList = []
+            argsValueList = []
+            for key, value in self.args.items():
+                argsKeyList.extend(["{}".format(key)])
+                argsValueList.extend(["{}".format(value)])
+
+            data.append(argsKeyList)
+            data.append(argsValueList)
+            df = pd.DataFrame(data)
+            # _log_dir = os.path.join("./results/", f"{self.args['prefix']}", "cnn_top1", f"{self.args['dataset']}", f"{self.args['postfix']}")
+            # os.makedirs(_log_dir, exist_ok=True)
+            # if self.args['domainTrans']:
+            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dccl' + 'best '+str(task )
+            #     if self.args['scenario'] == 'dcl':
+            #         sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dcl'+ 'best '+str(task )
+            # else:
+            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'ccl'+ 'best '+str(task )
+            # _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
+            # writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
+            #
+            # df.to_excel(writer, index=False, sheet_name=sheet_name)
+            # writer.close()
+            # print("sheet_name", sheet_name)
+        return total_acc[-1]
+    def compute_task_acc_joint(self,test_loader,total_acc_max,task):
+        cnn_acc_list_temp = []
+        cnn_accy_dict_temp, nme_accy_dict_temp = self.eval_task_joint(test_loader, save_conf=True)
+        cnn_acc_list_temp.append(cnn_accy_dict_temp)
+            # 解析cnn_acc_list,以最终的格式来排列
+        data = []
+        for taskDict in cnn_acc_list_temp:
+            task_result = []
+            # cnn_acc_dict 为一个task对应的数据
+            for datasetID, datasetResult in taskDict.items():
+                #  v 为dataset ID 0对应的字典
+                acc_list = []
+                for acc in datasetResult['grouped'].items():
+                    k, v = acc
+                    if k == 'new' or k == 'old':
+                        continue
+
+                    acc_list.append(v)
+
+                print(len(acc_list))
+                for i in range(20):
+                    if (len(acc_list) <= 10):
+                        acc_list.append(None)
+                    else:
+                        break
+                task_result.extend(acc_list)
+
+            data.append(task_result)
+        total_acc = []
+        total_forget = []
+        for i, model_acc in enumerate(data):
+            temp_acc_lst = []
+            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+            for j in range(task+1):
+                temp_acc_lst.append(model_acc[j * 11])
+
+            total_acc.append(np.average(temp_acc_lst))
+        for acc in total_acc:
+            total_forget.append(max(total_acc) - acc)
+        # 调用插入数组函数
+        if total_acc_max <  total_acc[-1]:
+            for i, model_acc in enumerate(data):
+                model_acc.insert(0, total_acc[i])
+                print("best_acc : ".format(i), total_acc[i])
+                model_acc.insert(0, total_forget[i])
+
+            argsKeyList = []
+            argsValueList = []
+            for key, value in self.args.items():
+                argsKeyList.extend(["{}".format(key)])
+                argsValueList.extend(["{}".format(value)])
+
+            data.append(argsKeyList)
+            data.append(argsValueList)
+            df = pd.DataFrame(data)
+            # _log_dir = os.path.join("./results/", f"{self.args['prefix']}", "cnn_top1", f"{self.args['dataset']}", f"{self.args['postfix']}")
+            # os.makedirs(_log_dir, exist_ok=True)
+            # if self.args['domainTrans']:
+            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dccl' + 'best '+str(task )
+            #     if self.args['scenario'] == 'dcl':
+            #         sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dcl'+ 'best '+str(task )
+            # else:
+            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'ccl'+ 'best '+str(task )
+            # _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
+            # writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
+            #
+            # df.to_excel(writer, index=False, sheet_name=sheet_name)
+            # writer.close()
+            # print("sheet_name", sheet_name)
+        return total_acc[-1]
+
+    def eval_task_joint(self, test_loader, save_conf=False):
+        cnn_accy_dict = {}
+        nme_accy_dict = {}
+        for cur_task in range(self._cur_task + 1):
+
+            self.test_loader  = test_loader
+
+            if self.args['model_name'] == "derwwdua" or self.args['model_name'] == "icarlwwdua" or self.args[
+                'model_name'] == "lwfwwdua":
+                # 要将所有的分支的域换成对应的BN域
+                # self.loadBN(self._network,self._cur_task,cur_task)
+                print("----------------DDDDDDUUUUUUUUAAAAAA---------------------------")
+                mom_pre = 0.1
+
+                train_dataset = data_manager.get_dataset(
+                    np.arange(self._known_classes, self._total_classes),
+                    source="train",
+                    mode="train",
+                    # appendent=self._get_memory(),
+                    domainTrans=self.domainTrans,
+                    domain_type=self.domain[cur_task]
+                )
+                self.train_loader = DataLoader(
+                    train_dataset, batch_size=self.args['batch_size'], shuffle=True,
+                    num_workers=self.args['num_workers']
+                )
+
+                self._network.eval()
+                for i, (_, inputs, targets) in enumerate(self.train_loader):
+                    if i > 3:
+                        break
+                    inputs, targets = inputs.to(self._device), targets.to(self._device)
+                    mom_new = (mom_pre * 0.94)
+                    for m in self._network.modules():
+                        # print(m)
+                        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+                            m.train()
+                            m.momentum = mom_new + 0.005
+                    mom_pre = mom_new
+
+                    _ = self._network(inputs)
+
+            # 'convnets.0.stage_1.0.bn_a.running_mean'
+            # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
+            y_pred, y_true = self._eval_cnn(self.test_loader)
+
+            cnn_accy = self._evaluate(y_pred, y_true, cur_task)
+
+            if hasattr(self, "_class_means"):
+                y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
+                nme_accy = self._evaluate(y_pred, y_true, cur_task)
+            else:
+                nme_accy = None
+
+            if save_conf:
+                _pred = y_pred.T[0]
+                _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
+                _target_path = os.path.join(self.args['logfilename'], "target.npy")
+                np.save(_pred_path, _pred)
+                np.save(_target_path, y_true)
+
+                _save_dir = os.path.join(f"./results/conf_matrix/{self.args['prefix']}")
+                os.makedirs(_save_dir, exist_ok=True)
+                _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
+                with open(_save_path, "a+") as f:
+                    f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
+            cnn_accy_dict.setdefault('dataset ID {}:'.format(cur_task), cnn_accy)
+            nme_accy_dict.setdefault('dataset ID {}:'.format(cur_task), nme_accy)
+        return cnn_accy_dict, nme_accy_dict

@@ -13,17 +13,18 @@ from utils.toolkit import target2onehot, tensor2numpy
 
 import os
 import copy
-from utils.toolkit import save_model_ing
+from utils.toolkit import save_model_ing,loadBestModel
 
 class LwFWDUA(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self._network = IncrementalNet(args["convnet_type"], False)
         self.args = args
-        self.total_acc_max = -1
+        
     def after_task(self,data_manager,task):
         self._old_network = self._network.copy().freeze()
         self._known_classes = self._total_classes
+
         logging.info("Exemplar size: {}".format(self.exemplar_size))
 
     def incremental_train(self, data_manager):
@@ -32,10 +33,10 @@ class LwFWDUA(BaseLearner):
             self._cur_task
         )
         if self.args['scenario'] == 'dcl':
-            if self.args['dataset'] == 'cifar10':
+            if self.args['dataset']== 'cifar10':
                 self._total_classes = 6
                 self._known_classes = 0
-            if self.args['dataset'] == 'cifar100':
+            if self.args['dataset']== 'cifar100':
                 self._total_classes = 60
                 self._known_classes = 0
         else:
@@ -44,6 +45,15 @@ class LwFWDUA(BaseLearner):
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
+        if  self._cur_task==0:
+            pass
+        else:
+             # 加载上一个任务最优的模型
+            print("-----Load Model  {}------".format(self._cur_task))
+            model_path = loadBestModel(self.args, self._cur_task - 1)
+            self._network.load_state_dict(torch.load(model_path) )
+
+        self.total_acc_max = -1
         self._network.update_fc(self._total_classes)
 
         logging.info(
@@ -83,7 +93,7 @@ class LwFWDUA(BaseLearner):
         self._network.to(self._device)
         if self._old_network is not None:
             self._old_network.to(self._device)
-        print("domain_type:",self.domain[self._cur_task])
+        print("\ndomain_type:",self.domain[self._cur_task])
         if self._cur_task == 0:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -127,6 +137,7 @@ class LwFWDUA(BaseLearner):
 
     def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         prog_bar = tqdm(range(self.args['init_epoch']))
+
         for _, epoch in enumerate(prog_bar):
             self._network.train()
             losses = 0.0
@@ -201,10 +212,11 @@ class LwFWDUA(BaseLearner):
         if self.args['dataset'] == "cifar100":
             _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
                                  "model_params.pt")
-        self._network.module.load_state_dict(torch.load(_path)
-                                             )
-        print("-----Load Model------")
+        self._network.module.load_state_dict(torch.load(_path) )
+        print("-----Load Model  {}------".format( self._cur_task))
     def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
+       
+
 
         prog_bar = tqdm(range(self.args['epochs']))
         for _, epoch in enumerate(prog_bar):
@@ -281,15 +293,16 @@ class LwFWDUA(BaseLearner):
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
             test_acc = self._compute_accuracy(self._network, test_loader)
-            if self._cur_task ==4:
-                total_acc = self.compute_task_acc(data_manager,self.total_acc_max)
-                if total_acc >= self.total_acc_max:
-                    self.best_model = copy.deepcopy(self._network)
-                    save_model_ing(args=self.args, model=self.best_model)
+            # 保存每个任务的最佳模型
 
-                    self.total_acc_max =  total_acc
-                    print("total_acc_max:", self.total_acc_max)
-                    print("total_acc:", total_acc)
+            total_acc = self.compute_task_acc(data_manager,self.total_acc_max,task = self._cur_task)
+            if total_acc >= self.total_acc_max:
+                self.best_model = copy.deepcopy(self._network)
+                save_model_ing(args=self.args, model=self.best_model.module,task = self._cur_task)
+
+                self.total_acc_max =  total_acc
+                print("task:{} total_acc_max:".format(self._cur_task), self.total_acc_max)
+                print("task:{} total_acc:".format(self._cur_task), total_acc)
 
             info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                 self._cur_task,

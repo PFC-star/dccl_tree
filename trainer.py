@@ -10,9 +10,15 @@ import numpy as np
 import torch
 from utils import factory
 from utils.data_manager import DataManager
-from utils.toolkit import ConfigEncoder, count_parameters, save_fc, save_model
+from utils.toolkit import ConfigEncoder, count_parameters, save_fc, save_model,loadBestModel
 import pandas as pd
+from torch.utils.data import ConcatDataset
+import copy
+import logging
 
+
+from torch import nn
+from torch.utils.data import DataLoader
 time_list = []
 model_size=[]
 topk = 'top2'
@@ -101,7 +107,7 @@ def _train(args):
     cnn_curve, nme_curve, no_nme = {"top1": [], topk: []}, {"top1": [], topk: []}, True
     # cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager, save_conf=True)
     cnn_acc_list =[]
-
+    cnn_acc_list_last = []
     for task in range(0,data_manager.nb_tasks):
         start_time = time.time()
         logging.info(f"Start time:{start_time}")
@@ -117,11 +123,89 @@ def _train(args):
         model.save_bn_stats_in_model(model._network,task)
         model.save_bn_stats_to_file(model._network,args["dataset"],args['model_name'])
         if task == data_manager.nb_tasks-1:
+            print("-----Load Model  {}------".format(task))
+            model_path = loadBestModel(args, task)
+            model._network.load_state_dict(torch.load(model_path))
             cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager=data_manager,save_conf=True)
             # cnn_accy_dict = True if nme_accy_dict is None else False
             no_nme = True if nme_accy_dict is None else False
         else:
-            cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager,save_conf=False)
+            # best 测试保存
+
+            if args['model_name'] == 'joint':
+
+                if args['scenario'] == 'dcl':
+                    if args['dataset'] == 'cifar10':
+                        _total_classes = 6
+                        _known_classes = 0
+                    if  args['dataset'] == 'cifar100':
+                        _total_classes = 60
+                        _known_classes = 0
+                else:
+                    if args['dataset'] == 'cifar10':
+                        _total_classes = 10
+                        _known_classes = 0
+
+                    if args['dataset'] == 'cifar100':
+                        _total_classes = 100
+                        _known_classes = 0
+
+
+
+
+
+                test_dataset_lst = globals()
+                test_loader_lst = globals()
+                if args['domainTrans']:
+                    domain = [
+                        'None',
+                        'RandomHorizontalFlip',
+                        'ColorJitter',
+                        'RandomRotation',
+                        'RandomAffine',
+                    ]
+                    # self.domain = [
+                    #
+                    #     'RandomHorizontalFlip',
+                    #     'ColorJitter',
+                    #     'RandomRotation',
+                    #     'RandomGrayscale',
+                    #     'RandomVerticalFlip',
+                    # ]
+                else:
+                    domain = ['None', 'None', 'None', 'None', 'None']
+                for i in range(5):
+                    if  args['domainTrans']:
+                        domain_ = i
+                    else:
+                        domain_ = 0
+
+                    test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                        np.arange(0, _total_classes), source="test", mode="test",
+                        domainTrans= args['domainTrans'],
+                        domain_type=domain[domain_],
+                    )
+
+
+                concat_test_set = ConcatDataset(
+                    [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
+
+
+                _contact_test_loader = DataLoader(
+                    concat_test_set, batch_size=args['batch_size'], shuffle=True,
+                    num_workers=args['num_workers']
+                )
+                print("-----Load Model  {}------".format(task+1))
+                model_path = loadBestModel(args, task+1)
+                model._network.load_state_dict(torch.load(model_path))
+                cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
+            else:
+                print("-----Load Model  {}------".format(task))
+                model_path = loadBestModel(args, task )
+                model._network.load_state_dict(torch.load(model_path) )
+                cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager,save_conf=False)
+
+
         cnn_acc_list.append(cnn_accy_dict)
         print("task {}:".format(task))
         print(cnn_accy_dict)
@@ -206,198 +290,7 @@ def save_time(args, cost_time):
     with open(_log_path, "a+") as f:
         f.write(f"{args['time_str']},{args['model_name']}, {cost_time} \n")
 
-def save_results(args, cnn_curve, nme_curve, no_nme=False):
-    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
-    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
 
-    #-------CNN TOP1----------
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
-    os.makedirs(_log_dir, exist_ok=True)
-
-    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-    if args['prefix'] == 'benchmark':
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]},")
-            f.write(f"{sum(cnn_top1)/len(cnn_top1)} \n")
-    else:
-        assert args['prefix'] in ['fair', 'auc']
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]} \n")
-
-    #-------CNN TOP5----------
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top5")
-    os.makedirs(_log_dir, exist_ok=True)
-    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-    if args['prefix'] == 'benchmark':
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},")
-            for _acc in cnn_top5[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top5[-1]} \n")
-    else:
-        assert args['prefix'] in ['auc', 'fair']
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-            for _acc in cnn_top5[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top5[-1]} \n")
-
-
-    #-------NME TOP1----------
-    if no_nme is False:
-        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top1")
-        os.makedirs(_log_dir, exist_ok=True)
-        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-        if args['prefix'] == 'benchmark':
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},")
-                for _acc in nme_top1[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top1[-1]} \n")
-        else:
-            assert args['prefix'] in ['fair', 'auc']
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-                for _acc in nme_top1[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top1[-1]} \n")
-
-        #-------NME TOP5----------
-        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top5")
-        os.makedirs(_log_dir, exist_ok=True)
-        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-        if args['prefix'] == 'benchmark':
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},")
-                for _acc in nme_top5[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top5[-1]} \n")
-        else:
-            assert args['prefix'] in ['auc', 'fair']
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-                for _acc in nme_top5[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top5[-1]} \n")
-
-
-def save_all_results(args, cnn_curve, nme_curve,cost_time ,cnn_acc,no_nme=False):
-    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
-    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
-
-    # -------CNN TOP1----------
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
-    os.makedirs(_log_dir, exist_ok=True)
-
-    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-    if args['prefix'] == 'benchmark':
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]},")
-            f.write(f"{sum(cnn_top1) / len(cnn_top1)},")
-            for key, value in args.items():
-                f.write(f"{value}, ")
-            f.write(f"{cost_time}, ")
-            f.write(f"{args['domainTrans']} \n")
-    else:
-        assert args['prefix'] in ['fair', 'auc']
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]} \n")
-
-    # -------CNN TOP5----------
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top5")
-    os.makedirs(_log_dir, exist_ok=True)
-    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-    if args['prefix'] == 'benchmark':
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},")
-            for _acc in cnn_top5[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top5[-1]} \n")
-    else:
-        assert args['prefix'] in ['auc', 'fair']
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-            for _acc in cnn_top5[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top5[-1]} \n")
-
-    # -------NME TOP1----------
-    if no_nme is False:
-        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top1")
-        os.makedirs(_log_dir, exist_ok=True)
-        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-        if args['prefix'] == 'benchmark':
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},")
-                for _acc in nme_top1[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top1[-1]} \n")
-        else:
-            assert args['prefix'] in ['fair', 'auc']
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-                for _acc in nme_top1[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top1[-1]} \n")
-
-                # -------NME TOP5----------
-        _log_dir = os.path.join("./results/", f"{args['prefix']}", "nme_top5")
-        os.makedirs(_log_dir, exist_ok=True)
-        _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-        if args['prefix'] == 'benchmark':
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},")
-                for _acc in nme_top5[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top5[-1]} \n")
-        else:
-            assert args['prefix'] in ['auc', 'fair']
-            with open(_log_path, "a+") as f:
-                f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-                for _acc in nme_top5[:-1]:
-                    f.write(f"{_acc},")
-                f.write(f"{nme_top5[-1]} \n")
-
-
-def save_all_results_excel(args, cnn_curve, nme_curve, cost_time, cnn_acc, no_nme=False):
-    cnn_top1, cnn_top5 = cnn_curve["top1"], cnn_curve[topk]
-    nme_top1, nme_top5 = nme_curve["top1"], nme_curve[topk]
-
-    # -------CNN TOP1----------
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1")
-    os.makedirs(_log_dir, exist_ok=True)
-
-    _log_path = os.path.join(_log_dir, f"{args['csv_name']}.csv")
-    if args['prefix'] == 'benchmark':
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]},")
-            f.write(f"{sum(cnn_top1) / len(cnn_top1)},")
-            for key, value in args.items():
-                f.write(f"{value}, ")
-            f.write(f"{cost_time}, ")
-            f.write(f"{args['domainTrans']} \n")
-    else:
-        assert args['prefix'] in ['fair', 'auc']
-        with open(_log_path, "a+") as f:
-            f.write(f"{args['time_str']},{args['model_name']},{args['memory_size']},")
-            for _acc in cnn_top1[:-1]:
-                f.write(f"{_acc},")
-            f.write(f"{cnn_top1[-1]} \n")
 
 
 def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme):
@@ -442,9 +335,9 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     for i,model_acc in enumerate(data):
         model_acc.insert(0, total_acc[i])
         print("total_acc_{}: ".format(i),total_acc[i])
-        model_acc.insert(0,total_forget[i])
-        # model_acc.insert(2, model_size[i])
         model_acc.insert(0, time_list[i])
+        model_acc.insert(0, model_size[i])
+        model_acc.insert(0, total_forget[i])
 
     argsKeyList = []
     argsValueList = []
@@ -455,7 +348,7 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     data.append(argsKeyList)
     data.append(argsValueList)
     df = pd.DataFrame(data)
-    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}","final5")
+    _log_dir = os.path.join("./results/", f"{args['prefix']}", "cnn_top1",f"{args['dataset']}",f"{args['postfix']}")
     os.makedirs(_log_dir, exist_ok=True)
     if args['domainTrans']:
         sheet_name = args['model_name']+" "+args['convnet_type']+" " + 'dccl'

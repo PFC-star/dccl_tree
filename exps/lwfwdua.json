@@ -17,7 +17,7 @@
         2024
     ],
     "init_epoch": 50,
-    "init_lr": 0.1,
+    "init_lr":0.1,
     "init_milestones": [
         60,
         120,
@@ -25,7 +25,7 @@
     ],
     "init_lr_decay": 0.1,
     "init_weight_decay": 0.0005,
-    "epochs": 20,
+    "epochs": 50,
     "lrate": 0.1,
     "milestones": [
         60,
