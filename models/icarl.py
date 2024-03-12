@@ -212,8 +212,12 @@ class iCaRL(BaseLearner):
     def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
-            _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
-                                 "model_params.pt")
+            # _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
+            #                      "model_params.pt")  # 78.01的头
+            _path = os.path.join("logs/benchmark/cifar10/finetune/0312-06-30-19-817_cifar10_resnet32_2024_B6_Inc1",
+                                 "model_params.pt")  # 80的头
+
+
         if self.args['dataset'] == "cifar100":
             _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
                                  "model_params.pt")

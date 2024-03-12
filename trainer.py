@@ -201,8 +201,9 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
-                model_path = loadBestModel(args, task )
-                model._network.load_state_dict(torch.load(model_path) )
+                model_size.append(save_model(args, model))
+                # model_path = loadBestModel(args, task )
+                # model._network.load_state_dict(torch.load(model_path) )
                 cnn_accy_dict, nme_accy_dict = model.eval_task(data_manager,save_conf=False)
 
 

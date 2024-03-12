@@ -122,9 +122,9 @@ class Finetune(BaseLearner):
                 lr=self.args['init_lr'],
                 weight_decay=self.args['init_weight_decay'],
             )
-            # scheduler = optim.lr_scheduler.MultiStepLR(
-            #     optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
-            #     )
+            scheduler = optim.lr_scheduler.MultiStepLR(
+                optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
+                )
             # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             #     optimizer,
             #     T_max=self.init_epoch,
@@ -139,7 +139,7 @@ class Finetune(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=None)
+                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=scheduler)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -156,7 +156,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -177,7 +177,7 @@ class Finetune(BaseLearner):
                 correct += preds.eq(targets.expand_as(preds)).cpu().sum()
                 total += len(targets)
 
-            # scheduler.step()
+            scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
 
@@ -200,6 +200,8 @@ class Finetune(BaseLearner):
                 test_acc,
             )
             print("test_acc:",test_acc)
+            # self.last_model = copy.deepcopy(self._network)
+            # save_model_ing(args=self.args, model=self.last_model)
             # print("total_acc_max:", self.total_acc_max)
             # print("total_acc:", total_acc)
             prog_bar.set_description(info)

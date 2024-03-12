@@ -224,8 +224,12 @@ def loadBestModel(args, task):
 
     if task ==-1 or task == 0 :
         if args['dataset'] == "cifar10":
-            model_path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
-                                 "model_params.pt")
+
+
+            # model_path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
+            #                      "model_params.pt")  # 78.01的头
+            model_path = os.path.join("logs/benchmark/cifar10/finetune/0312-06-30-19-817_cifar10_resnet32_2024_B6_Inc1",
+                                 "model_params.pt")  # 80的头
         if args['dataset'] == "cifar100":
             model_path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
                                  "model_params.pt")
