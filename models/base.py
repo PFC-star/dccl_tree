@@ -582,41 +582,77 @@ class BaseLearner(object):
         self._class_means = _class_means
     def compute_task_acc(self,data_manager,total_acc_max,task):
         cnn_acc_list_temp = []
+        args  = self.args
         cnn_accy_dict_temp, nme_accy_dict_temp = self.eval_task(data_manager=data_manager, save_conf=True)
         cnn_acc_list_temp.append(cnn_accy_dict_temp)
             # 解析cnn_acc_list,以最终的格式来排列
         data = []
-        for taskDict in cnn_acc_list_temp:
-            task_result = []
-            # cnn_acc_dict 为一个task对应的数据
-            for datasetID, datasetResult in taskDict.items():
-                #  v 为dataset ID 0对应的字典
-                acc_list = []
-                for acc in datasetResult['grouped'].items():
-                    k, v = acc
-                    if k == 'new' or k == 'old':
-                        continue
+        if args['dataset'] != 'domainNet':
+            for taskDict in cnn_acc_list_temp:
+                task_result = []
+                # cnn_acc_dict 为一个task对应的数据
+                for datasetID, datasetResult in taskDict.items():
+                    #  v 为dataset ID 0对应的字典
+                    acc_list = []
+                    for acc in datasetResult['grouped'].items():
+                        k, v = acc
+                        if k == 'new' or k == 'old':
+                            continue
 
-                    acc_list.append(v)
+                        acc_list.append(v)
 
-                print(len(acc_list))
-                for i in range(20):
-                    if (len(acc_list) <= 10):
-                        acc_list.append(None)
-                    else:
-                        break
-                task_result.extend(acc_list)
+                    print(len(acc_list))
 
-            data.append(task_result)
-        total_acc = []
-        total_forget = []
-        for i, model_acc in enumerate(data):
-            temp_acc_lst = []
-            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
-            for j in range(task+1):
-                temp_acc_lst.append(model_acc[j * 11])
+                    for i in range(20):
+                        if (len(acc_list) <= 10):
+                            acc_list.append(None)
+                        else:
+                            break
+                    task_result.extend(acc_list)
 
-            total_acc.append(np.average(temp_acc_lst))
+                data.append(task_result)
+            total_acc = []
+            total_forget = []
+            for i, model_acc in enumerate(data):
+                temp_acc_lst = []
+                #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+                for j in range(i + 1):
+                    temp_acc_lst.append(model_acc[j * 11])
+
+                total_acc.append(np.average(temp_acc_lst))
+        else:
+            for taskDict in cnn_acc_list_temp:
+                task_result = []
+                # cnn_acc_dict 为一个task对应的数据
+                for datasetID, datasetResult in taskDict.items():
+                    #  v 为dataset ID 0对应的字典
+                    acc_list = []
+                    for acc in datasetResult['grouped'].items():
+                        k, v = acc
+                        if k == 'new' or k == 'old':
+                            continue
+
+                        acc_list.append(v)
+
+                    print(len(acc_list))
+
+                    for i in range(20):
+                        if (len(acc_list) <= 13):
+                            acc_list.append(None)
+                        else:
+                            break
+                    task_result.extend(acc_list)
+
+                data.append(task_result)
+            total_acc = []
+            total_forget = []
+            for i, model_acc in enumerate(data):
+                temp_acc_lst = []
+                #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+                for j in range(i + 1):
+                    temp_acc_lst.append(model_acc[j * 14])
+
+                total_acc.append(np.average(temp_acc_lst))
         for acc in total_acc:
             total_forget.append(max(total_acc) - acc)
         # 调用插入数组函数
@@ -635,20 +671,20 @@ class BaseLearner(object):
             data.append(argsKeyList)
             data.append(argsValueList)
             df = pd.DataFrame(data)
-            # _log_dir = os.path.join("./results/", f"{self.args['prefix']}", "cnn_top1", f"{self.args['dataset']}", f"{self.args['postfix']}")
-            # os.makedirs(_log_dir, exist_ok=True)
-            # if self.args['domainTrans']:
-            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dccl' + 'best '+str(task )
-            #     if self.args['scenario'] == 'dcl':
-            #         sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'dcl'+ 'best '+str(task )
-            # else:
-            #     sheet_name = self.args['model_name'] + " " + self.args['convnet_type'] + " " + 'ccl'+ 'best '+str(task )
-            # _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
-            # writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
-            #
-            # df.to_excel(writer, index=False, sheet_name=sheet_name)
-            # writer.close()
-            # print("sheet_name", sheet_name)
+            _log_dir = os.path.join("./results/", f"{self.args['prefix']}", "cnn_top1", f"{self.args['dataset']}", f"{self.args['postfix']}")
+            os.makedirs(_log_dir, exist_ok=True)
+            if self.args['domainTrans']:
+                sheet_name = self.args['model_name'] + " " + self.args['convnet_type'][:5] + " " + 'dccl' + 'b'+str(task )
+                if self.args['scenario'] == 'dcl':
+                    sheet_name = self.args['model_name'] + " " + self.args['convnet_type'][:5] + " " + 'dcl'+ 'b'+str(task )
+            else:
+                sheet_name = self.args['model_name'] + " " + self.args['convnet_type'][:5] + " " + 'ccl'+ 'b'+str(task )
+            _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
+            writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
+
+            df.to_excel(writer, index=False, sheet_name=sheet_name)
+            writer.close()
+            print("sheet_name", sheet_name)
         return total_acc[-1]
     def compute_task_acc_joint(self,test_loader,total_acc_max,task):
         cnn_acc_list_temp = []

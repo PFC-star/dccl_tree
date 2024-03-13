@@ -261,13 +261,22 @@ class iDomainNet(iData):
 
     use_path = True
     train_trsf = [
-        transforms.RandomResizedCrop(224),
+        transforms.Resize(64),
+        transforms.RandomResizedCrop(64),
         # transforms.RandomHorizontalFlip(),
     ]
     test_trsf = [
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
+        transforms.Resize(68),
+        transforms.CenterCrop(64),
     ]
+    # train_trsf = [
+    #     transforms.RandomResizedCrop(224),
+    #     # transforms.RandomHorizontalFlip(),
+    # ]
+    # test_trsf = [
+    #     transforms.Resize(256),
+    #     transforms.CenterCrop(224),
+    # ]
     common_trsf = [
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),

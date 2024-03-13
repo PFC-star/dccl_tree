@@ -45,6 +45,11 @@ class iCaRLWDUA(BaseLearner):
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
+                if self.args['dataset'] == 'domainNet':
+                    self._known_classes = self._known_classes - 175
+
+
+
         if  self._cur_task==0:
             pass
         else:
@@ -62,7 +67,11 @@ class iCaRLWDUA(BaseLearner):
         logging.info(
             "domain:{} ".format(self.domain[self._cur_task])
         )
-        # 这里正式建立数据集
+        if self.args['dataset'] == 'domainNet':
+            data_manager._setup_data('domainNet', False, 2024,self._cur_task)
+
+
+
         train_dataset = data_manager.get_dataset(
             np.arange(self._known_classes, self._total_classes),
             source="train",
@@ -205,11 +214,16 @@ class iCaRLWDUA(BaseLearner):
     def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
-            _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
-                                 "model_params.pt")
+            # _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
+            #                      "model_params.pt")
+
+            _path = os.path.join("logs/benchmark/cifar10/finetune/0312-06-30-19-817_cifar10_resnet32_2024_B6_Inc1",
+                                 "model_params.pt")  # 80的头
         if self.args['dataset'] == "cifar100":
-            _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
-                                 "model_params.pt")
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
+                                 "cifar100_50.pt")
         self._network.module.load_state_dict(torch.load(_path) )
         print("-----Load Model  {}------".format( self._cur_task))
     def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
@@ -239,7 +253,6 @@ class iCaRLWDUA(BaseLearner):
                 logits = self._network(inputs)["logits"]
                 loss_clf = F.cross_entropy(logits, targets)
 
-
                 if self.args['scenario'] == 'dcl':
 
                     if self.args['dataset'] == 'cifar10':
@@ -251,6 +264,12 @@ class iCaRLWDUA(BaseLearner):
                     if self.args['dataset'] == 'cifar100':
                         loss_kd = _KD_loss(
                             logits[:, : self._known_classes + 60],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
+                    if self.args['dataset'] == 'domainNet':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 200],
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )
@@ -270,7 +289,12 @@ class iCaRLWDUA(BaseLearner):
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )
-
+                    if self.args['dataset'] == 'domainNet':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 175],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
 
                 loss =  loss_kd + loss_clf
 

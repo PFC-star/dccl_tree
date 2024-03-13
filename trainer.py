@@ -201,13 +201,13 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
-                # 跑头时
-                model_size.append(save_model(args, model))
+                # # 跑头时
+                # model_size.append(save_model(args, model))
 
 
                 # 正常跑时
-                # model_path = loadBestModel(args, task )
-                # model._network.load_state_dict(torch.load(model_path) )
+                model_path = loadBestModel(args, task )
+                model._network.load_state_dict(torch.load(model_path) )
 
 
                 # 都要有
@@ -304,39 +304,81 @@ def save_time(args, cost_time):
 def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme):
     # 解析cnn_acc_list,以最终的格式来排列
     data = []
-    for taskDict in cnn_acc_list:
-        task_result = []
-        # cnn_acc_dict 为一个task对应的数据
-        for datasetID, datasetResult in taskDict.items():
-            #  v 为dataset ID 0对应的字典
-            acc_list = []
-            for acc in datasetResult['grouped'].items():
-                k, v = acc
-                if k == 'new' or k == 'old':
-                    continue
+    if args['dataset'] != 'domainNet':
+        for taskDict in cnn_acc_list:
+            task_result = []
+            # cnn_acc_dict 为一个task对应的数据
+            for datasetID, datasetResult in taskDict.items():
+                #  v 为dataset ID 0对应的字典
+                acc_list = []
+                for acc in datasetResult['grouped'].items():
+                    k, v = acc
+                    if k == 'new' or k == 'old':
+                        continue
 
-                acc_list.append(v)
+                    acc_list.append(v)
 
-            print(len(acc_list))
-            for i in range(20):
-                if (len(acc_list) <= 10):
-                    acc_list.append(None)
-                else:
-                    break
-            task_result.extend(acc_list)
+                print(len(acc_list))
+
+                for i in range(20):
+                    if (len(acc_list) <= 10):
+                        acc_list.append(None)
+                    else:
+                        break
+                task_result.extend(acc_list)
 
 
-        data.append(task_result)
-    total_acc = []
-    total_forget = []
-    for i,model_acc in enumerate(data):
-        temp_acc_lst = []
-        #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
-        for j in range(i+1):
+            data.append(task_result)
+        total_acc = []
+        total_forget = []
+        for i,model_acc in enumerate(data):
+            temp_acc_lst = []
+            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+            for j in range(i+1):
 
-            temp_acc_lst.append(model_acc[j*11])
+                temp_acc_lst.append(model_acc[j*11])
 
-        total_acc.append(np.average(temp_acc_lst))
+            total_acc.append(np.average(temp_acc_lst))
+    else:
+        for taskDict in cnn_acc_list:
+            task_result = []
+            # cnn_acc_dict 为一个task对应的数据
+            for datasetID, datasetResult in taskDict.items():
+                #  v 为dataset ID 0对应的字典
+                acc_list = []
+                for acc in datasetResult['grouped'].items():
+                    k, v = acc
+                    if k == 'new' or k == 'old':
+                        continue
+
+                    acc_list.append(v)
+
+                print(len(acc_list))
+
+                for i in range(20):
+                    if (len(acc_list) <= 13):
+                        acc_list.append(None)
+                    else:
+                        break
+                task_result.extend(acc_list)
+
+            data.append(task_result)
+        total_acc = []
+        total_forget = []
+        for i, model_acc in enumerate(data):
+            temp_acc_lst = []
+            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+            for j in range(i + 1):
+                temp_acc_lst.append(model_acc[j * 14])
+
+            total_acc.append(np.average(temp_acc_lst))
+
+
+
+
+
+
+
     for acc in total_acc:
         total_forget.append(max(total_acc)-acc)
     # 调用插入数组函数

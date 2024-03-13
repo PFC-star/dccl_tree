@@ -165,7 +165,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -189,16 +189,17 @@ class Finetune(BaseLearner):
             scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
-
-
-
             test_acc = self._compute_accuracy(self._network, test_loader)
-            # total_acc  = self.compute_task_acc(data_manager)
-            # if total_acc >= self.total_acc_max:
-            #     self.best_model = copy.deepcopy(self._network)
-            #     save_model_ing(args=self.args, model=self.best_model)
-            #
-            # self.total_acc_max = np.max(total_acc,self.total_acc_max)
+            # 保存每个任务的最佳模型
+
+            total_acc = self.compute_task_acc(data_manager, self.total_acc_max, task=self._cur_task)
+            if total_acc >= self.total_acc_max:
+                self.best_model = copy.deepcopy(self._network)
+                save_model_ing(args=self.args, model=self.best_model.module, task=self._cur_task)
+
+                self.total_acc_max = total_acc
+                print("task:{} total_acc_max:".format(self._cur_task), self.total_acc_max)
+                print("task:{} total_acc:".format(self._cur_task), total_acc)
 
             info = "Task {}, Epoch {}/{} => Loss {:.3f}, Train_accy {:.2f}, Test_accy {:.2f}".format(
                 self._cur_task,
@@ -208,11 +209,8 @@ class Finetune(BaseLearner):
                 train_acc,
                 test_acc,
             )
-            print("test_acc:",test_acc)
-            # self.last_model = copy.deepcopy(self._network)
-            # save_model_ing(args=self.args, model=self.last_model)
-            # print("total_acc_max:", self.total_acc_max)
-            # print("total_acc:", total_acc)
+            print("test_acc:", test_acc)
+
             prog_bar.set_description(info)
 
         logging.info(info)
@@ -221,11 +219,14 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
-            _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
-                                 "model_params.pt")
+            # _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
+            #                      "model_params.pt")
+
+            _path = os.path.join("logs/benchmark/cifar10/finetune/0312-06-30-19-817_cifar10_resnet32_2024_B6_Inc1",
+                                      "model_params.pt")  # 80的头
         if self.args['dataset'] == "cifar100":
             # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
             #                      "model_params.pt")

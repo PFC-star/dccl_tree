@@ -58,7 +58,9 @@ class Joint(BaseLearner):
             if self.args['dataset'] == 'cifar100':
                 self._total_classes = 100
                 self._known_classes = 0
-
+            if self.args['dataset'] == 'domainNet':
+                self._total_classes = 325
+                self._known_classes = 0
          
         self.total_acc_max = -1
         self._network.update_fc(self._total_classes)
