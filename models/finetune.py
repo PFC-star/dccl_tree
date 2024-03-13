@@ -19,8 +19,8 @@ from utils.toolkit import save_model_ing,loadBestModel
 
 
 
-# -p benchmark -d 0 1  --debug -model  finetune -dt True --dataset domainNet -net resnet34_imagenet -d 0 1 -init 200 -incre 25
-
+# python main.py -p benchmark -d 0 1   -model  finetune  --dataset domainNet -net resnet34_imagenet -d 0 1 -init 60 -incre 10
+# python main.py -p benchmark -d 0 1   -model  finetune  --dataset domainNet -net resnet32 -d 0 1 -init 60 -incre 10
 
 
 
@@ -28,7 +28,7 @@ class Finetune(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
         self.args = args
-        self._network = IncrementalNet(args["convnet_type"], False)
+        self._network = IncrementalNet(args["convnet_type"], True)
         self.init_epoch = args['init_epoch']
         self.init_lr = args['init_lr']
         self.init_milestones = args['init_milestones']
@@ -60,7 +60,7 @@ class Finetune(BaseLearner):
                 self._total_classes = 60
                 self._known_classes = 0
             if self.args['dataset']== 'domainNet':
-                self._total_classes = 200
+                self._total_classes = 60
                 self._known_classes = 0
         else:
             if self._cur_task != 0:
@@ -69,7 +69,7 @@ class Finetune(BaseLearner):
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
                 if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 175
+                    self._known_classes = self._known_classes - 50
 
 
 
@@ -165,7 +165,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler):
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -219,7 +219,7 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
             # _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",

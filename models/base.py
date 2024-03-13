@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils.toolkit import tensor2numpy, accuracy
+from utils.toolkit import tensor2numpy, accuracy,accuracyTop5
 from scipy.spatial.distance import cdist
 import os
 
@@ -24,7 +24,7 @@ class BaseLearner(object):
         # if args['topk']:
         #     self.topk = args['topk']
         # else:
-        self.topk=2
+        self.topk=5
         self.increment=args['increment']
         self.domainTrans=args['domainTrans']
         if self.domainTrans:
@@ -101,13 +101,14 @@ class BaseLearner(object):
     def _evaluate(self, y_pred, y_true,cur_task):
         ret = {}
         grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment,cur_task=cur_task)
+        # grouped = accuracyTop5(y_pred.T, y_true, self._known_classes, increment=self.increment, cur_task=cur_task)
         ret["grouped"] = grouped
         ret["top1"] = grouped["total"]
         ret["top{}".format(self.topk)] = np.around(
             (y_pred.T == np.tile(y_true, (self.topk, 1))).sum() * 100 / len(y_true),
             decimals=2,
         )
-
+        grouped["total"] =  ret["top{}".format(self.topk)]
         return ret
     def loadBNall(self, net, task,cur_task):
         """
@@ -202,6 +203,7 @@ class BaseLearner(object):
     def eval_task(self,data_manager,save_conf=False):
         cnn_accy_dict={}
         nme_accy_dict={}
+
         for cur_task in range(self._cur_task+1):
             test_dataset = data_manager.get_dataset(
                 np.arange(0, self._total_classes), source="test",
@@ -252,9 +254,12 @@ class BaseLearner(object):
             # 'convnets.0.stage_1.0.bn_a.running_mean'
             # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
             y_pred, y_true = self._eval_cnn(self.test_loader)
-
-            cnn_accy = self._evaluate(y_pred, y_true,cur_task)
-
+            if self.args['dataset'] == 'cifar100':
+                cnn_accy = self._evaluate(y_pred[cur_task*1000:cur_task*1000+6000], y_true[cur_task*1000:cur_task*1000+6000],cur_task)
+            if self.args['dataset'] == 'domainNet':
+                cnn_accy = self._evaluate(y_pred ,y_true ,cur_task)
+            # 0 时:0：:6000
+            # 1 时：1000：7000
             if hasattr(self, "_class_means"):
                 y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
                 nme_accy = self._evaluate(y_pred, y_true,cur_task)

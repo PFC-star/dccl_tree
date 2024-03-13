@@ -21,7 +21,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 time_list = []
 model_size=[]
-topk = 'top2'
+topk = 'top5'
 def train(args):
     seed_list = copy.deepcopy(args["seed"])
     device = copy.deepcopy(args["device"])
@@ -201,13 +201,13 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
-                # # 跑头时
-                # model_size.append(save_model(args, model))
+                # 跑头时
+                model_size.append(save_model(args, model))
 
 
-                # 正常跑时
-                model_path = loadBestModel(args, task )
-                model._network.load_state_dict(torch.load(model_path) )
+                # # 正常跑时
+                # model_path = loadBestModel(args, task )
+                # model._network.load_state_dict(torch.load(model_path) )
 
 
                 # 都要有
@@ -356,7 +356,8 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
                 print(len(acc_list))
 
                 for i in range(20):
-                    if (len(acc_list) <= 13):
+                    # if (len(acc_list) <= 13):
+                    if (len(acc_list) <= 11):
                         acc_list.append(None)
                     else:
                         break
@@ -369,7 +370,8 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
             temp_acc_lst = []
             #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
             for j in range(i + 1):
-                temp_acc_lst.append(model_acc[j * 14])
+                temp_acc_lst.append(model_acc[j * 12])
+                # temp_acc_lst.append(model_acc[j * 14])
 
             total_acc.append(np.average(temp_acc_lst))
 
