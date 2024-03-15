@@ -200,87 +200,6 @@ class BaseLearner(object):
             file_name = 'BN_stats.pt'
         torch.save(net.bn_stats, join(ckpt_folder, file_name))
 
-    def eval_task(self,data_manager,save_conf=False):
-        cnn_accy_dict={}
-        nme_accy_dict={}
-
-        for cur_task in range(self._cur_task+1):
-            test_dataset = data_manager.get_dataset(
-                np.arange(0, self._total_classes), source="test",
-                mode="test",
-                domain_type=self.domain[cur_task],
-                domainTrans=self.domainTrans
-            )
-            self.test_loader = DataLoader(
-                test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
-            )
-
-
-
-            if self.args['model_name'] == "derwwdua" or self.args['model_name'] == "icarlwwdua" or self.args['model_name'] == "lwfwwdua":
-                # 要将所有的分支的域换成对应的BN域
-                # self.loadBN(self._network,self._cur_task,cur_task)
-                print("----------------DDDDDDUUUUUUUUAAAAAA---------------------------")
-                mom_pre = 0.1
-
-                train_dataset = data_manager.get_dataset(
-                    np.arange(self._known_classes, self._total_classes),
-                    source="train",
-                    mode="train",
-                    # appendent=self._get_memory(),
-                    domainTrans=self.domainTrans,
-                    domain_type=self.domain[cur_task]
-                )
-                self.train_loader = DataLoader(
-                    train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
-                )
-
-                self._network.eval()
-                for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i> 3:
-                        break
-                    inputs, targets = inputs.to(self._device), targets.to(self._device)
-                    mom_new = (mom_pre * 0.94)
-                    for m in self._network.modules():
-                        # print(m)
-                        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                            m.train()
-                            m.momentum = mom_new + 0.005
-                    mom_pre = mom_new
-
-                    _ = self._network(inputs)
-
-
-            # 'convnets.0.stage_1.0.bn_a.running_mean'
-            # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
-            y_pred, y_true = self._eval_cnn(self.test_loader)
-            if self.args['dataset'] == 'cifar100':
-                cnn_accy = self._evaluate(y_pred[cur_task*1000:cur_task*1000+6000], y_true[cur_task*1000:cur_task*1000+6000],cur_task)
-            if self.args['dataset'] == 'domainNet':
-                cnn_accy = self._evaluate(y_pred ,y_true ,cur_task)
-            # 0 时:0：:6000
-            # 1 时：1000：7000
-            if hasattr(self, "_class_means"):
-                y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
-                nme_accy = self._evaluate(y_pred, y_true,cur_task)
-            else:
-                nme_accy = None
-
-            if save_conf:
-                _pred = y_pred.T[0]
-                _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
-                _target_path = os.path.join(self.args['logfilename'], "target.npy")
-                np.save(_pred_path, _pred)
-                np.save(_target_path, y_true)
-
-                _save_dir = os.path.join(f"./results/conf_matrix/{self.args['prefix']}")
-                os.makedirs(_save_dir, exist_ok=True)
-                _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
-                with open(_save_path, "a+") as f:
-                    f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
-            cnn_accy_dict.setdefault('dataset ID {}:'.format(cur_task), cnn_accy)
-            nme_accy_dict.setdefault('dataset ID {}:'.format(cur_task), nme_accy)
-        return cnn_accy_dict, nme_accy_dict
 
     def incremental_train(self):
         pass
@@ -307,7 +226,38 @@ class BaseLearner(object):
 
         return np.around(tensor2numpy(correct) * 100 / total, decimals=2)
 
-    def _eval_cnn(self, loader):
+    def _eval_cnn(self, loader ,cur_task):
+        if self.args['dataset'] == 'cifar100':
+            _known_classes = cur_task * 10
+            _total_classes = _known_classes + 60
+        if self.args['dataset'] == 'domainNet':
+           _known_classes = 0
+           _total_classes = 60
+        if self.args['dataset'] == 'cifar10':
+           _known_classes = cur_task * 1
+           _total_classes = _known_classes + 6
+        self._network.eval()
+        y_pred, y_true = [], []
+        for _, (_, inputs, targets) in enumerate(loader):
+            inputs = inputs.to(self._device)
+            # print("------targets---------")
+            # print(targets)
+            with torch.no_grad():
+                outputs = self._network(inputs)["logits"]
+            # print("------outputs---------")
+            # print(outputs.shape )
+            predicts = torch.topk(
+                outputs[:,_known_classes:_total_classes], k=self.topk, dim=1, largest=True, sorted=True
+            )[
+                1
+            ]  # [bs, topk]
+
+            y_pred.append(predicts.cpu().numpy())
+            y_true.append(targets.cpu().numpy())
+
+        return np.concatenate(y_pred), np.concatenate(y_true)  # [N, topk]
+
+    def _eval_cnn_init(self, loader):
 
         self._network.eval()
         y_pred, y_true = [], []
@@ -333,7 +283,6 @@ class BaseLearner(object):
             y_true.append(targets.cpu().numpy())
 
         return np.concatenate(y_pred), np.concatenate(y_true)  # [N, topk]
-
     def _eval_nme(self, loader, class_means):
         self._network.eval()
         vectors, y_true = self._extract_vectors(loader)
@@ -642,7 +591,7 @@ class BaseLearner(object):
                     print(len(acc_list))
 
                     for i in range(20):
-                        if (len(acc_list) <= 13):
+                        if (len(acc_list) <= 11):
                             acc_list.append(None)
                         else:
                             break
@@ -655,7 +604,7 @@ class BaseLearner(object):
                 temp_acc_lst = []
                 #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
                 for j in range(i + 1):
-                    temp_acc_lst.append(model_acc[j * 14])
+                    temp_acc_lst.append(model_acc[j * 12])
 
                 total_acc.append(np.average(temp_acc_lst))
         for acc in total_acc:
@@ -685,11 +634,11 @@ class BaseLearner(object):
             else:
                 sheet_name = self.args['model_name'] + " " + self.args['convnet_type'][:5] + " " + 'ccl'+ 'b'+str(task )
             _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
-            writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
-
-            df.to_excel(writer, index=False, sheet_name=sheet_name)
-            writer.close()
-            print("sheet_name", sheet_name)
+            # writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
+            #
+            # df.to_excel(writer, index=False, sheet_name=sheet_name)
+            # writer.close()
+            # print("sheet_name", sheet_name)
         return total_acc[-1]
     def compute_task_acc_joint(self,test_loader,total_acc_max,task):
         cnn_acc_list_temp = []
@@ -765,51 +714,79 @@ class BaseLearner(object):
     def eval_task_joint(self, test_loader, save_conf=False):
         cnn_accy_dict = {}
         nme_accy_dict = {}
-        for cur_task in range(self._cur_task + 1):
 
+        for cur_task in range(self._cur_task + 1):
+            if self.args['dataset'] == 'cifar100':
+                _known_classes = cur_task * 10
+                _total_classes = _known_classes + 60
+            if self.args['dataset'] == 'domainNet':
+                _known_classes = cur_task * 10
+                _total_classes = _known_classes + 60
             self.test_loader  = test_loader
 
-            if self.args['model_name'] == "derwwdua" or self.args['model_name'] == "icarlwwdua" or self.args[
-                'model_name'] == "lwfwwdua":
-                # 要将所有的分支的域换成对应的BN域
-                # self.loadBN(self._network,self._cur_task,cur_task)
-                print("----------------DDDDDDUUUUUUUUAAAAAA---------------------------")
-                mom_pre = 0.1
 
-                train_dataset = data_manager.get_dataset(
-                    np.arange(self._known_classes, self._total_classes),
-                    source="train",
-                    mode="train",
-                    # appendent=self._get_memory(),
-                    domainTrans=self.domainTrans,
-                    domain_type=self.domain[cur_task]
-                )
-                self.train_loader = DataLoader(
-                    train_dataset, batch_size=self.args['batch_size'], shuffle=True,
-                    num_workers=self.args['num_workers']
-                )
-
-                self._network.eval()
-                for i, (_, inputs, targets) in enumerate(self.train_loader):
-                    if i > 3:
-                        break
-                    inputs, targets = inputs.to(self._device), targets.to(self._device)
-                    mom_new = (mom_pre * 0.94)
-                    for m in self._network.modules():
-                        # print(m)
-                        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
-                            m.train()
-                            m.momentum = mom_new + 0.005
-                    mom_pre = mom_new
-
-                    _ = self._network(inputs)
-
-            # 'convnets.0.stage_1.0.bn_a.running_mean'
-            # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
-            y_pred, y_true = self._eval_cnn(self.test_loader)
+            y_pred, y_true = self._eval_cnn_init(self.test_loader)
 
             cnn_accy = self._evaluate(y_pred, y_true, cur_task)
 
+            if hasattr(self, "_class_means"):
+                y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
+                nme_accy = self._evaluate(y_pred, y_true, cur_task)
+            else:
+                nme_accy = None
+
+            if save_conf:
+                _pred = y_pred.T[0]
+                _pred_path = os.path.join(self.args['logfilename'], "pred.npy")
+                _target_path = os.path.join(self.args['logfilename'], "target.npy")
+                np.save(_pred_path, _pred)
+                np.save(_target_path, y_true)
+
+                _save_dir = os.path.join(f"./results/conf_matrix/{self.args['prefix']}")
+                os.makedirs(_save_dir, exist_ok=True)
+                _save_path = os.path.join(_save_dir, f"{self.args['csv_name']}.csv")
+                with open(_save_path, "a+") as f:
+                    f.write(f"{self.args['time_str']},{self.args['model_name']},{_pred_path},{_target_path} \n")
+            cnn_accy_dict.setdefault('dataset ID {}:'.format(cur_task), cnn_accy)
+            nme_accy_dict.setdefault('dataset ID {}:'.format(cur_task), nme_accy)
+        return cnn_accy_dict, nme_accy_dict
+
+    def eval_task(self, data_manager, save_conf=False):
+        cnn_accy_dict = {}
+        nme_accy_dict = {}
+
+        for cur_task in range(self._cur_task + 1):
+            if self.args['dataset'] == 'cifar100':
+                _known_classes = cur_task * 10
+                _total_classes = _known_classes + 60
+            if self.args['dataset'] == 'cifar10':
+                _known_classes = cur_task * 1
+                _total_classes = _known_classes + 6
+            if self.args['dataset'] == 'domainNet':
+                _known_classes = 0
+                _total_classes = 60
+            test_dataset = data_manager.get_dataset(
+                np.arange(_known_classes, _total_classes), source="test",
+                mode="test",
+                domain_type=self.domain[cur_task],
+                domainTrans=self.domainTrans
+            )
+            self.test_loader = DataLoader(
+                test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
+            )
+
+            # 'convnets.0.stage_1.0.bn_a.running_mean'
+            # self._network.state_dict()['convnets.0.stage_1.0.bn_a.running_mean']
+            y_pred, y_true = self._eval_cnn(self.test_loader, cur_task=cur_task)
+            y_true_fake = y_true - _known_classes
+            if self.args['dataset'] == 'cifar100':
+                cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
+            if self.args['dataset'] == 'domainNet':
+                cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
+            if self.args['dataset'] == 'cifar10':
+                cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
+            # 0 时:0：:6000
+            # 1 时：1000：7000
             if hasattr(self, "_class_means"):
                 y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
                 nme_accy = self._evaluate(y_pred, y_true, cur_task)

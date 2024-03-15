@@ -141,6 +141,9 @@ def _train(args):
                     if  args['dataset'] == 'cifar100':
                         _total_classes = 60
                         _known_classes = 0
+                    if args['dataset'] == 'domainNet':
+                        _total_classes = 60
+                        _known_classes = 0
                 else:
                     if args['dataset'] == 'cifar10':
                         _total_classes = 10
@@ -148,6 +151,9 @@ def _train(args):
 
                     if args['dataset'] == 'cifar100':
                         _total_classes = 100
+                        _known_classes = 0
+                    if args['dataset'] == 'domainNet':
+                        _total_classes = 110
                         _known_classes = 0
 
 
@@ -173,22 +179,35 @@ def _train(args):
                     #     'RandomVerticalFlip',
                     # ]
                 else:
-                    domain = ['None', 'None', 'None', 'None', 'None']
-                for i in range(5):
-                    if  args['domainTrans']:
-                        domain_ = i
-                    else:
-                        domain_ = 0
+                    domain = ['None', 'None', 'None', 'None', 'None','None']
+                if self.args['dataset'] == 'domainNet':
+                    for i in range(6):
+                        data_manager._setup_data('domainNet', False, 2024, i)
+                        test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                            np.arange(0, _total_classes), source="test", mode="test",
+                            domainTrans=args['domainTrans'],
+                            domain_type=domain[i],
+                        )
+                    concat_test_set = ConcatDataset(
+                    [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4,test_dataset_5])
+                else:
+                    for i in range(5):
+                        if  args['domainTrans']:
+                            domain_ = i
+                        else:
+                            domain_ = 0
 
-                    test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
-                        np.arange(0, _total_classes), source="test", mode="test",
-                        domainTrans= args['domainTrans'],
-                        domain_type=domain[domain_],
-                    )
 
 
-                concat_test_set = ConcatDataset(
-                    [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
+                        test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                            np.arange(0, _total_classes), source="test", mode="test",
+                            domainTrans= args['domainTrans'],
+                            domain_type=domain[domain_],
+                        )
+
+
+                    concat_test_set = ConcatDataset(
+                        [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
 
 
                 _contact_test_loader = DataLoader(
@@ -201,13 +220,13 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
-                # 跑头时
-                model_size.append(save_model(args, model))
+                # # 跑头时
+                # model_size.append(save_model(args, model))
 
 
-                # # 正常跑时
-                # model_path = loadBestModel(args, task )
-                # model._network.load_state_dict(torch.load(model_path) )
+                # 正常跑时
+                model_path = loadBestModel(args, task )
+                model._network.load_state_dict(torch.load(model_path) )
 
 
                 # 都要有

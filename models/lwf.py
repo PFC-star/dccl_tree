@@ -38,6 +38,9 @@ class LwF(BaseLearner):
             if self.args['dataset']== 'cifar100':
                 self._total_classes = 60
                 self._known_classes = 0
+            if self.args['dataset'] == 'domainNet':
+                self._total_classes = 60
+                self._known_classes = 0
         else:
             if self._cur_task != 0:
                 if self.args['dataset'] == 'cifar10':
@@ -45,7 +48,7 @@ class LwF(BaseLearner):
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
                 if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 175
+                    self._known_classes = self._known_classes - 50
 
 
 
@@ -210,7 +213,13 @@ class LwF(BaseLearner):
             #                      "model_params.pt")
             _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
                                  "cifar100_50.pt")
-        self._network.module.load_state_dict(torch.load(_path) )
+        if self.args['dataset'] == "domainNet":
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            # _path = os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
+            #                      "cosine_resnet34_72.4.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
+                                 "cosine_resnet34_68.15.pt")
         print("-----Load Model  {}------".format( self._cur_task))
 
 
@@ -250,7 +259,7 @@ class LwF(BaseLearner):
                         )
                     if self.args['dataset'] == 'domainNet':
                         loss_kd = _KD_loss(
-                            logits[:, : self._known_classes + 200],
+                            logits[:, : self._known_classes + 60],
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )
@@ -272,7 +281,7 @@ class LwF(BaseLearner):
                         )
                     if self.args['dataset'] == 'domainNet':
                         loss_kd = _KD_loss(
-                            logits[:, : self._known_classes + 175],
+                            logits[:, : self._known_classes + 50],
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )

@@ -50,6 +50,9 @@ class Joint(BaseLearner):
             if self.args['dataset'] == 'cifar100':
                 self._total_classes = 60
                 self._known_classes = 0
+            if self.args['dataset'] == 'domainNet':
+                self._total_classes = 60
+                self._known_classes = 0
         else:
             if self.args['dataset'] == 'cifar10':
                 self._total_classes = 10
@@ -59,7 +62,7 @@ class Joint(BaseLearner):
                 self._total_classes = 100
                 self._known_classes = 0
             if self.args['dataset'] == 'domainNet':
-                self._total_classes = 325
+                self._total_classes = 110
                 self._known_classes = 0
          
         self.total_acc_max = -1
@@ -75,31 +78,49 @@ class Joint(BaseLearner):
         test_dataset_lst = globals()
         self.test_loader_lst = globals()
 
+        if self.args['dataset'] == 'domainNet':
+            for i in range(6):
+                print(i)
+                data_manager._setup_data('domainNet', False, 2024, i)
 
-        for i in range(5):
-            if self.domainTrans:
-                domain_=i
-            else:
-                domain_=0
-            train_dataset_lst['train_dataset_{}'.format(i)] = data_manager.get_dataset(
-            # 能够看到所有的数据，然后重新按照所有数据学习一遍，以前的相当于预训练了
-            np.arange(0, self._total_classes),
-            source="train",
-            mode="train",
-            domainTrans=self.domainTrans,
-            domain_type=self.domain[domain_],
-         )
-
-
-
-            test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
-                np.arange(0, self._total_classes), source="test", mode="test",
+                test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                    np.arange(0,  self._total_classes), source="test", mode="test",
+                    domainTrans=self.args['domainTrans'],
+                    domain_type=self.domain[i],
+                )
+                train_dataset_lst['train_dataset_{}'.format(i)] = data_manager.get_dataset(
+                    np.arange(0,  self._total_classes), source="train", mode="train",
+                    domainTrans=self.args['domainTrans'],
+                    domain_type=self.domain[i],
+                )
+            concat_test_set = ConcatDataset(
+            [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4, test_dataset_5])
+            concat_train_set = ConcatDataset(
+                [train_dataset_0, train_dataset_1, train_dataset_2, train_dataset_3, train_dataset_4,train_dataset_5])
+        else:
+            for i in range(5):
+                if self.domainTrans:
+                    domain_=i
+                else:
+                    domain_=0
+                train_dataset_lst['train_dataset_{}'.format(i)] = data_manager.get_dataset(
+                # 能够看到所有的数据，然后重新按照所有数据学习一遍，以前的相当于预训练了
+                np.arange(0, self._total_classes),
+                source="train",
+                mode="train",
                 domainTrans=self.domainTrans,
-                domain_type=self.domain[domain_],
-            )
+                domain_type=self.domain[domain_],)
 
-        concat_train_set = ConcatDataset([train_dataset_0, train_dataset_1, train_dataset_2,train_dataset_3,train_dataset_4])
-        concat_test_set = ConcatDataset( [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
+
+
+                test_dataset_lst['test_dataset_{}'.format(i)] = data_manager.get_dataset(
+                    np.arange(0, self._total_classes), source="test", mode="test",
+                    domainTrans=self.domainTrans,
+                    domain_type=self.domain[domain_],
+                )
+
+            concat_train_set = ConcatDataset([train_dataset_0, train_dataset_1, train_dataset_2,train_dataset_3,train_dataset_4])
+            concat_test_set = ConcatDataset( [test_dataset_0, test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4])
         self._contact_train_loader = DataLoader(
             concat_train_set, batch_size=self.batch_size, shuffle=True,
             num_workers=self.num_workers

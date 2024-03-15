@@ -199,6 +199,7 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
             dclflag=True
             taskID = np.max(y_true) + 1 - 200
     all_acc = {}
+    dclflag=True
     # Grouped accuracy
 
     all_acc_temp={}
@@ -411,8 +412,11 @@ def loadBestModel(args, task):
             model_path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
                                  "cifar100_50.pt")
         if args['dataset'] == "domainNet":
-            model_path = os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
-                                 "finetune resnet34_imagenet ccllast .pt")
+            # model_path = os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
+            #                          "cosine_resnet34_72.4.pt")
+            model_path =  os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
+                     "cosine_resnet34_68.15.pt")
+
         return model_path
     # _path = os.path.join(args['logfilename'], "model_params_best.pt")
 
