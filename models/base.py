@@ -21,10 +21,8 @@ class BaseLearner(object):
         self._network = None
         self._old_network = None
         self._data_memory, self._targets_memory = np.array([]), np.array([])
-        # if args['topk']:
-        #     self.topk = args['topk']
-        # else:
-        self.topk=5
+
+        self.topk=args['topk']
         self.increment=args['increment']
         self.domainTrans=args['domainTrans']
         if self.domainTrans:
@@ -36,12 +34,21 @@ class BaseLearner(object):
                             'RandomAffine' ,
                           ]
             # self.domain = [
+            #                 'None',
+            #                 'RandomHorizontalFlip',
+            #                 'RandomAffine',
+            #                 'RandomRotation',
+            #                 'ColorJitter',
             #
-            #     'RandomHorizontalFlip',
-            #     'ColorJitter',
-            #     'RandomRotation',
-            #     'RandomGrayscale',
+            #               ]
+            # self.domain = [
+            #     'None',
             #     'RandomVerticalFlip',
+            #     'RandomAffine',
+            #     'RandomGrayscale',
+            #     'RandomRotation',
+            #
+            #
             # ]
         else:
             self.domain=['None','None','None','None','None','None']
@@ -94,21 +101,27 @@ class BaseLearner(object):
             "test_acc": test_acc
         }
         torch.save(save_dict, "{}_{}.pkl".format(checkpoint_name, self._cur_task))
-    
+
     def after_task(self):
         pass
 
     def _evaluate(self, y_pred, y_true,cur_task):
         ret = {}
-        grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment,cur_task=cur_task)
-        # grouped = accuracyTop5(y_pred.T, y_true, self._known_classes, increment=self.increment, cur_task=cur_task)
+        if  self.topk==1:
+
+            grouped = accuracy(y_pred.T[0], y_true, self._known_classes,increment=self.increment,cur_task=cur_task)
+        if self.topk == 5:
+             grouped = accuracyTop5(y_pred.T, y_true, self._known_classes, increment=self.increment, cur_task=cur_task)
+
+        ret["top{}".format(self.topk)] = grouped["total"]
+        # ret["top{}".format(self.topk)] = np.around(
+        #     (y_pred.T == np.tile(y_true, (self.topk, 1))).sum() * 100 / len(y_true),
+        #     decimals=2,
+        # )
+        grouped["total"] = ret["top{}".format(self.topk)]
         ret["grouped"] = grouped
-        ret["top1"] = grouped["total"]
-        ret["top{}".format(self.topk)] = np.around(
-            (y_pred.T == np.tile(y_true, (self.topk, 1))).sum() * 100 / len(y_true),
-            decimals=2,
-        )
-        grouped["total"] =  ret["top{}".format(self.topk)]
+
+
         return ret
     def loadBNall(self, net, task,cur_task):
         """
@@ -233,6 +246,9 @@ class BaseLearner(object):
         if self.args['dataset'] == 'domainNet':
            _known_classes = 0
            _total_classes = 60
+        if self.args['dataset'] == 'imagenet200':
+            _known_classes = cur_task * 20
+            _total_classes =  _known_classes +120
         if self.args['dataset'] == 'cifar10':
            _known_classes = cur_task * 1
            _total_classes = _known_classes + 6
@@ -247,7 +263,7 @@ class BaseLearner(object):
             # print("------outputs---------")
             # print(outputs.shape )
             predicts = torch.topk(
-                outputs[:,_known_classes:_total_classes], k=self.topk, dim=1, largest=True, sorted=True
+                outputs[:], k=self.topk, dim=1, largest=True, sorted=True
             )[
                 1
             ]  # [bs, topk]
@@ -391,7 +407,7 @@ class BaseLearner(object):
                 data = np.delete(
                     data, i, axis=0
                 )  # Remove it to avoid duplicative selection
-                
+
                 if len(vectors) == 0:
                     break
             # uniques = np.unique(selected_exemplars, axis=0)
@@ -541,72 +557,40 @@ class BaseLearner(object):
         cnn_acc_list_temp.append(cnn_accy_dict_temp)
             # 解析cnn_acc_list,以最终的格式来排列
         data = []
-        if args['dataset'] != 'domainNet':
-            for taskDict in cnn_acc_list_temp:
-                task_result = []
-                # cnn_acc_dict 为一个task对应的数据
-                for datasetID, datasetResult in taskDict.items():
-                    #  v 为dataset ID 0对应的字典
-                    acc_list = []
-                    for acc in datasetResult['grouped'].items():
-                        k, v = acc
-                        if k == 'new' or k == 'old':
-                            continue
 
-                        acc_list.append(v)
+        for taskDict in cnn_acc_list_temp:
+            task_result = []
+            # cnn_acc_dict 为一个task对应的数据
+            for datasetID, datasetResult in taskDict.items():
+                #  v 为dataset ID 0对应的字典
+                acc_list = []
+                for acc in datasetResult['grouped'].items():
+                    k, v = acc
+                    if k == 'new' or k == 'old':
+                        continue
 
-                    print(len(acc_list))
+                    acc_list.append(v)
 
-                    for i in range(20):
-                        if (len(acc_list) <= 10):
-                            acc_list.append(None)
-                        else:
-                            break
-                    task_result.extend(acc_list)
+                print(len(acc_list))
 
-                data.append(task_result)
-            total_acc = []
-            total_forget = []
-            for i, model_acc in enumerate(data):
-                temp_acc_lst = []
-                #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
-                for j in range(i + 1):
-                    temp_acc_lst.append(model_acc[j * 11])
+                for i in range(20):
+                    if (len(acc_list) <= 10):
+                        acc_list.append(None)
+                    else:
+                        break
+                task_result.extend(acc_list)
 
-                total_acc.append(np.average(temp_acc_lst))
-        else:
-            for taskDict in cnn_acc_list_temp:
-                task_result = []
-                # cnn_acc_dict 为一个task对应的数据
-                for datasetID, datasetResult in taskDict.items():
-                    #  v 为dataset ID 0对应的字典
-                    acc_list = []
-                    for acc in datasetResult['grouped'].items():
-                        k, v = acc
-                        if k == 'new' or k == 'old':
-                            continue
+            data.append(task_result)
+        total_acc = []
+        total_forget = []
+        for i, model_acc in enumerate(data):
+            temp_acc_lst = []
+            #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
+            for j in range(task + 1):
+                temp_acc_lst.append(model_acc[j * 11])
 
-                        acc_list.append(v)
+        total_acc.append(np.average(temp_acc_lst))
 
-                    print(len(acc_list))
-
-                    for i in range(20):
-                        if (len(acc_list) <= 11):
-                            acc_list.append(None)
-                        else:
-                            break
-                    task_result.extend(acc_list)
-
-                data.append(task_result)
-            total_acc = []
-            total_forget = []
-            for i, model_acc in enumerate(data):
-                temp_acc_lst = []
-                #  计算平均准确率 i=0  对应  0-5   i=1 对应 1-6  以此类推
-                for j in range(i + 1):
-                    temp_acc_lst.append(model_acc[j * 12])
-
-                total_acc.append(np.average(temp_acc_lst))
         for acc in total_acc:
             total_forget.append(max(total_acc) - acc)
         # 调用插入数组函数
@@ -762,17 +746,23 @@ class BaseLearner(object):
             if self.args['dataset'] == 'cifar10':
                 _known_classes = cur_task * 1
                 _total_classes = _known_classes + 6
+            if self.args['dataset'] == 'imagenet200':
+                _known_classes = cur_task * 20
+                _total_classes = _known_classes + 120
             if self.args['dataset'] == 'domainNet':
                 _known_classes = 0
                 _total_classes = 60
+            if self.args['dataset'] == 'domainNet':
+                data_manager._setup_data('domainNet', False, 2024,cur_task)
             test_dataset = data_manager.get_dataset(
-                np.arange(_known_classes, _total_classes), source="test",
+                np.arange(0, _total_classes), source="test",
                 mode="test",
                 domain_type=self.domain[cur_task],
                 domainTrans=self.domainTrans
             )
+
             self.test_loader = DataLoader(
-                test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
+                test_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
             )
 
             # 'convnets.0.stage_1.0.bn_a.running_mean'
@@ -780,16 +770,17 @@ class BaseLearner(object):
             y_pred, y_true = self._eval_cnn(self.test_loader, cur_task=cur_task)
             y_true_fake = y_true - _known_classes
             if self.args['dataset'] == 'cifar100':
-                cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
+                cnn_accy = self._evaluate(y_pred, y_true, cur_task)
             if self.args['dataset'] == 'domainNet':
                 cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
             if self.args['dataset'] == 'cifar10':
-                cnn_accy = self._evaluate(y_pred, y_true_fake, cur_task)
-            # 0 时:0：:6000
-            # 1 时：1000：7000
+                cnn_accy = self._evaluate(y_pred, y_true, cur_task)
+            if self.args['dataset'] == 'imagenet200':
+                cnn_accy = self._evaluate(y_pred, y_true, cur_task)
+
             if hasattr(self, "_class_means"):
                 y_pred, y_true = self._eval_nme(self.test_loader, self._class_means)
-                nme_accy = self._evaluate(y_pred, y_true, cur_task)
+                nme_accy = None
             else:
                 nme_accy = None
 
