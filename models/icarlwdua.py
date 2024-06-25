@@ -48,8 +48,10 @@ class iCaRLWDUA(BaseLearner):
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
-                if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 50
+                if self.args['dataset'] == 'imagenet200':
+                    self._known_classes = self._known_classes - 100
+                # if self.args['dataset'] == 'domainNet':
+                #     self._known_classes = self._known_classes - 50
 
 
 
@@ -227,6 +229,11 @@ class iCaRLWDUA(BaseLearner):
             #                      "model_params.pt")
             _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
                                  "cifar100_50.pt")
+        if self.args['dataset'] == "imagenet200":
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/imagenet200/z/",
+                                 "last47.pt")
         if self.args['dataset'] == "domainNet":
             # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
             #                      "model_params.pt")
@@ -305,6 +312,12 @@ class iCaRLWDUA(BaseLearner):
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )
+                    if self.args['dataset'] == 'imagenet200':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 100],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
 
                 loss =  loss_kd + loss_clf
 
@@ -319,7 +332,7 @@ class iCaRLWDUA(BaseLearner):
 
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-            test_acc = self._compute_accuracy(self._network, test_loader)
+            test_acc = 0
             # 保存每个任务的最佳模型
 
             total_acc = self.compute_task_acc(data_manager,self.total_acc_max,task = self._cur_task)

@@ -21,17 +21,19 @@ from torch import nn
 from torch.utils.data import DataLoader
 time_list = []
 model_size=[]
-topk = 'top5'
+
+
 def train(args):
     seed_list = copy.deepcopy(args["seed"])
     device = copy.deepcopy(args["device"])
-
+    topk = args["topk"]
     for seed in seed_list:
         args["seed"] = seed
         args["device"] = device
         _train(args)
 
 def _train(args):
+    topk = args["topk"]
     time_str = datetime.datetime.now().strftime('%m%d-%H-%M-%S-%f')[:-3]
     args['time_str'] = time_str
     
@@ -220,13 +222,13 @@ def _train(args):
                 cnn_accy_dict, nme_accy_dict = model.eval_task_joint(_contact_test_loader, save_conf=False)
             else:
                 print("-----Load Model  {}------".format(task))
-                # # 跑头时
-                # model_size.append(save_model(args, model))
+                # 跑头时
+                model_size.append(save_model(args, model))
 
 
-                # 正常跑时
-                model_path = loadBestModel(args, task )
-                model._network.load_state_dict(torch.load(model_path) )
+                # # 正常跑时
+                # model_path = loadBestModel(args, task )
+                # model._network.load_state_dict(torch.load(model_path) )
 
 
                 # 都要有
@@ -239,29 +241,28 @@ def _train(args):
         model.after_task(data_manager,task)
         cnn_accy = cnn_accy_dict['dataset ID {}:'.format(task)]
         nme_accy = nme_accy_dict['dataset ID {}:'.format(task)]
-        if nme_accy is not None:
-            logging.info("CNN: {}".format(cnn_accy["grouped"]))
-            logging.info("NME: {}".format(nme_accy["grouped"]))
+        # if nme_accy is not None:
+        #     logging.info("CNN: {}".format(cnn_accy["grouped"]))
+        #     logging.info("NME: {}".format(nme_accy["grouped"]))
+        #
+        #     cnn_curve["top1"].append(cnn_accy["top1"])
+        #
+        #
+        #     nme_curve["top1"].append(nme_accy["top1"])
+        #
+        #
+        #     logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
+        #
+        #     logging.info("NME top1 curve: {}".format(nme_curve["top1"]))
+        #
+        # else:
+        #     logging.info("No NME accuracy.")
+        #     logging.info("CNN: {}".format(cnn_accy["grouped"]))
+        #
+        #     cnn_curve["top1"].append(cnn_accy["top1"])
+        #
+        #     logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
 
-            cnn_curve["top1"].append(cnn_accy["top1"])
-            cnn_curve[topk].append(cnn_accy[topk])
-
-            nme_curve["top1"].append(nme_accy["top1"])
-            nme_curve[topk].append(nme_accy[topk])
-
-            logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
-            logging.info("CNN top5 curve: {}".format(cnn_curve[topk]))
-            logging.info("NME top1 curve: {}".format(nme_curve["top1"]))
-            logging.info("NME top5 curve: {}\n".format(nme_curve[topk]))
-        else:
-            logging.info("No NME accuracy.")
-            logging.info("CNN: {}".format(cnn_accy["grouped"]))
-
-            cnn_curve["top1"].append(cnn_accy["top1"])
-            cnn_curve[topk].append(cnn_accy[topk])
-
-            logging.info("CNN top1 curve: {}".format(cnn_curve["top1"]))
-            logging.info("CNN top5 curve: {}\n".format(cnn_curve[topk]))
         end_time = time.time()
         logging.info(f"End Time:{end_time}")
         cost_time = end_time - start_time
@@ -430,9 +431,4 @@ def save_allll_results(args,cnn_acc_list,cost_time,cnn_curve, nme_curve, no_nme)
     _log_path = os.path.join(_log_dir, f"{sheet_name}.xlsx")
     writer = pd.ExcelWriter(_log_path, engine='xlsxwriter')
 
-    df.to_excel(writer, index=False, sheet_name=sheet_name)
-    writer.close()
-    print("sheet_name", sheet_name)
-
-
-
+    df.to_excel

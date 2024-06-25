@@ -1,4 +1,4 @@
- python main.py -model icarl -init 60 -incre 10  -p benchmark -d 0 1 -net 'cosine_resnet34'  -so dcl --dataset "domainNet"   &
+python main.py -model icarl -init 60 -incre 10  -p benchmark -d 0 1 -net 'cosine_resnet34'  -so dcl --dataset "domainNet"   &
 
 python main.py -model icarlwdua -init 60 -incre 10  -p benchmark -d 0 1 -net 'cosine_resnet34'  -so dcl --dataset "domainNet"  &
 

@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
-from utils.data import iCIFAR10, iCIFAR100, iImageNet100, iImageNet1000,iDomainNet
+from utils.data import iCIFAR10, iCIFAR100, iImageNet100, iImageNet1000,iDomainNet,iImageNet200
 import torch
 
 class DataManager(object):
@@ -246,7 +246,7 @@ class DataManager(object):
         else:
             order = idata.class_order
         self._class_order = order
-        logging.info(self._class_order)
+        # logging.info(self._class_order)
 
         # Map indices
         self._train_targets = _map_new_class_index(
@@ -275,7 +275,7 @@ class DataManager(object):
         else:
             order = idata.class_order
         self._class_order = order
-        logging.info(self._class_order)
+        # logging.info(self._class_order)
 
         # Map indices
         self._train_targets = _map_new_class_index(
@@ -370,6 +370,8 @@ def _get_idata(dataset_name):
         return iImageNet1000()
     elif name == "imagenet100":
         return iImageNet100()
+    elif name == "imagenet200":
+        return iImageNet200()
     elif name == "domainnet":
         return iDomainNet()
     else:

@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.214.131.230:31119 password (6)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.214.131.230:31118 password (9)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="root@10.214.131.230:31118 password (9)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/workspace/dccl_tree" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="root@10.214.131.230:31119 password (6)">
         <serverdata>
           <mappings>
-            <mapping deploy="dccl_tree" local="$PROJECT_DIR$" />
+            <mapping deploy="/dccl_tree" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

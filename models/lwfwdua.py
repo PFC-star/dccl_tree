@@ -39,14 +39,17 @@ class LwFWDUA(BaseLearner):
             if self.args['dataset']== 'cifar100':
                 self._total_classes = 60
                 self._known_classes = 0
+            if self.args['dataset']== 'domainNet':
+                self._total_classes = 60
+                self._known_classes = 0
         else:
             if self._cur_task != 0:
                 if self.args['dataset'] == 'cifar10':
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
-                if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 50
+                # if self.args['dataset'] == 'domainNet':
+                #     self._known_classes = self._known_classes - 50
 
 
 
@@ -236,6 +239,10 @@ class LwFWDUA(BaseLearner):
                                  "cosine_resnet34_68.15.pt")
         self._network.module.load_state_dict(torch.load(_path) )
         print("-----Load Model  {}------".format( self._cur_task))
+
+
+
+
     def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
        
 
@@ -326,7 +333,7 @@ class LwFWDUA(BaseLearner):
 
             # scheduler.step()
             train_acc = np.around(tensor2numpy(correct) * 100 / total, decimals=2)
-            test_acc = self._compute_accuracy(self._network, test_loader)
+            test_acc = 0
             # 保存每个任务的最佳模型
 
             total_acc = self.compute_task_acc(data_manager,self.total_acc_max,task = self._cur_task)

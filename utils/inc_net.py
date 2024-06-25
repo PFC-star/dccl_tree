@@ -39,7 +39,7 @@ from convs.memo_resnet import get_resnet26_imagenet as memo_resnet26_imagenet
 from convs.memo_resnet import get_resnet34_imagenet as memo_resnet34_imagenet
 from convs.memo_resnet import get_resnet50_imagenet as memo_resnet50_imagenet
 
-def get_convnet(convnet_type, pretrained=False):
+def get_convnet(convnet_type, pretrained):
     name = convnet_type.lower()
     if name == "resnet32":
         return resnet32()

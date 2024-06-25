@@ -46,6 +46,8 @@ def accuracyTop5(y_pred, y_true, nb_old, increment=10,cur_task=0):
         dataset_name='CIFAR10'
     if increment==25:
         dataset_name='DomainNet'
+    if increment==20:
+        dataset_name='imagenet200'
     y_true =  np.tile(y_true, (5, 1))
     assert len(y_pred) == len(y_true), "Data length error."
     dclflag = False
@@ -61,21 +63,26 @@ def accuracyTop5(y_pred, y_true, nb_old, increment=10,cur_task=0):
         if np.max(y_true)== 199 and cur_task!=0:
             dclflag=True
             taskID = np.max(y_true) + 1 - 200
+    if dataset_name == 'imagenet200':
+        if np.max(y_true) == 119 and cur_task != 0:
+            dclflag = True
+            taskID = np.max(y_true) + 1 - 200
     all_acc = {}
     # Grouped accuracy
-
+    y_true = y_true.reshape((1,-1))
+    y_pred = y_pred.reshape((1, -1))
     all_acc_temp={}
-    for class_id in range(0, np.max(y_true)+1, increment):
-        idxes = np.where(
-            np.logical_and(y_true >= class_id, y_true < class_id + increment)
-        )[0]
-        label = "{}-{}".format(
-            str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
-        )
-        all_acc_temp[label] = np.around(
-            (y_pred[idxes,None] == y_true[idxes,None]).sum() * 100 / len(idxes), decimals=2
-        )
-    tempTatalacc=[]
+    # # 全部acc
+    # for class_id in range(0, np.max(y_true)+1, increment):
+    #     idxes = np.where(
+    #         np.logical_and(y_true >= class_id, y_true < class_id + increment)
+    #     )[1]
+    #     label = "{}-{}".format(
+    #         str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+    #     )
+    #     all_acc_temp[label] = np.around(
+    #         (y_pred[:,idxes ] == y_true[:,idxes ]).sum() * 100 / len(idxes)*5, decimals=2)
+
     if dclflag:
         cur_task = 0
     # print("cur_task: ",  cur_task)
@@ -99,7 +106,7 @@ def accuracyTop5(y_pred, y_true, nb_old, increment=10,cur_task=0):
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
     if dataset_name == 'CIFAR100':
-        if np.max(y_true) + 1 == 100 and np.min(y_true) == 0:
+        if dclflag:
             for class_id in range(0, 100, increment):
                 label = "{}-{}".format(
                     str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
@@ -108,13 +115,60 @@ def accuracyTop5(y_pred, y_true, nb_old, increment=10,cur_task=0):
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
         else:
-            for class_id in range(cur_task*10, cur_task*10+60, increment):
+            # print("cur_task in acc:", cur_task)
+            tempTatalacc = []
+            for class_id in range(cur_task * 10, cur_task * 10 + 60, increment):
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                idxes = np.where(
+                    np.logical_and(y_true >= class_id, y_true < class_id + increment)
+                )[1]
+                all_acc_temp[label] = np.around(
+                    (y_pred[:, idxes] == y_true[:, idxes]).sum() * 100 / len(idxes) * 5, decimals=2)
+                # print(label)
+                tempTatalacc.append(all_acc_temp[label])
+            all_acc["total"] = np.average(tempTatalacc)
+
+            for class_id in range(cur_task * 10, cur_task * 10 + 60, increment):
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                all_acc[label] = all_acc_temp[label]
+
+
+    if dataset_name == 'imagenet200':
+        if dclflag:
+            for class_id in range(0, 200, increment):
                 label = "{}-{}".format(
                     str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
                 )
                 # print(label)
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
+        else:
+            print("cur_task in acc:", cur_task)
+
+            tempTatalacc = []
+            for class_id in range(cur_task * 20, cur_task * 20 + 120, increment):
+                # print("class_id:", class_id)
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                idxes = np.where(
+                    np.logical_and(y_true >= class_id, y_true < class_id + increment)
+                )[1]
+                all_acc_temp[label] = np.around(
+                    (y_pred[:, idxes] == y_true[:, idxes]).sum() * 100 / len(idxes) * 5, decimals=2)
+                # print(label)
+                tempTatalacc.append(all_acc_temp[label])
+            all_acc["total"] = np.average(tempTatalacc)
+
+            for class_id in range(cur_task * 20, cur_task * 20 + 120, increment):
+                label = "{}-{}".format(
+                    str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+                )
+                all_acc[label] = all_acc_temp[label]
     if dataset_name == 'DomainNet':
 
         if np.max(y_true) + 1 == 110 and np.min(y_true) == 0:
@@ -149,30 +203,22 @@ def accuracyTop5(y_pred, y_true, nb_old, increment=10,cur_task=0):
         #         # print(label)
         #         tempTatalacc.append(all_acc_temp[label])
         #     all_acc["total"] = np.average(tempTatalacc)
-    for class_id in range(0, np.max(y_true)+1, increment):
-        idxes = np.where(
-            np.logical_and(y_true >= class_id, y_true < class_id + increment)
-        )[0]
-        label = "{}-{}".format(
-            str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
-        )
-        all_acc[label] = np.around(
-            (y_pred[idxes] == y_true[idxes]).sum() * 100 / len(idxes), decimals=2
-        )
+
+
     # Old accuracy
-    idxes = np.where(y_true < nb_old)[0]
+    idxes = np.where(y_true < nb_old)[1]
     all_acc["old"] = (
         0
         if len(idxes) == 0
         else np.around(
-            (y_pred[idxes] == y_true[idxes]).sum() * 100 / len(idxes), decimals=2
+            (y_pred[:,idxes ] == y_true[:,idxes ]).sum() * 100 / len(idxes)*5, decimals=2
         )
     )
 
     # New accuracy
     idxes = np.where(y_true >= nb_old)[0]
     all_acc["new"] = np.around(
-        (y_pred[idxes] == y_true[idxes]).sum() * 100 / len(idxes), decimals=2
+        (y_pred[:,idxes ] == y_true[:,idxes ]).sum() * 100 / len(idxes)*5, decimals=2
     )
 
     return all_acc
@@ -183,21 +229,12 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
         dataset_name='CIFAR10'
     if increment==25:
         dataset_name='DomainNet'
+    if increment==20:
+        dataset_name='imagenet200'
 
     assert len(y_pred) == len(y_true), "Data length error."
-    dclflag = False
-    if dataset_name=='CIFAR100':
-        if np.max(y_true)== 59 and cur_task!=0:
-            dclflag=True
-            taskID = np.max(y_true) + 1 - 60
-    if dataset_name == 'CIFAR10':
-        if np.max(y_true)== 5 and cur_task!=0:
-            dclflag=True
-            taskID = np.max(y_true) + 1 - 6
-    if dataset_name == 'DomainNet':
-        if np.max(y_true)== 199 and cur_task!=0:
-            dclflag=True
-            taskID = np.max(y_true) + 1 - 200
+
+
     all_acc = {}
     dclflag=True
     # Grouped accuracy
@@ -253,10 +290,9 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
                 # print(label)
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
-    if dataset_name == 'DomainNet':
-
-        if np.max(y_true) + 1 == 110 and np.min(y_true) == 0:
-            for class_id in range(0, 110, increment):
+    if dataset_name == 'imagenet200':
+        if np.max(y_true) + 1 == 200 and np.min(y_true) == 0:
+            for class_id in range(0, 120, increment):
                 label = "{}-{}".format(
                     str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
                 )
@@ -264,13 +300,23 @@ def accuracy(y_pred, y_true, nb_old, increment=10,cur_task=0):
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
         else:
-            for class_id in range(cur_task*10, cur_task*10+60, increment):
+            for class_id in range(cur_task*20, cur_task*20+110, increment):
                 label = "{}-{}".format(
                     str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
                 )
                 # print(label)
                 tempTatalacc.append(all_acc_temp[label])
             all_acc["total"] = np.average(tempTatalacc)
+    if dataset_name == 'DomainNet':
+
+
+        for class_id in range(0, np.max(y_true)+1,increment):
+            label = "{}-{}".format(
+                str(class_id).rjust(2, "0"), str(class_id + increment - 1).rjust(2, "0")
+            )
+            # print(label)
+            tempTatalacc.append(all_acc_temp[label])
+        all_acc["total"] = np.average(tempTatalacc)
         # if np.max(y_true) + 1 == 200 and np.min(y_true) == 0:
         #     for class_id in range(0, 200, increment):
         #         label = "{}-{}".format(
@@ -416,6 +462,11 @@ def loadBestModel(args, task):
             #                          "cosine_resnet34_72.4.pt")
             model_path =  os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
                      "cosine_resnet34_68.15.pt")
+        if args['dataset'] == "imagenet200":
+            # model_path = os.path.join("results/benchmark/cnn_top1/domainNet/last_do",
+            #                          "cosine_resnet34_72.4.pt")
+            model_path = os.path.join("results/benchmark/cnn_top1/imagenet200/z",
+                                      "last47.pt")
 
         return model_path
     # _path = os.path.join(args['logfilename'], "model_params_best.pt")

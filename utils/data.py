@@ -123,6 +123,34 @@ class iImageNet100(iData):
 
         self.train_data, self.train_targets = split_images_labels(train_dset.imgs)
         self.test_data, self.test_targets = split_images_labels(test_dset.imgs)
+class iImageNet200(iData):
+    use_path = True
+    train_trsf = [
+        # transforms.Resize(32),
+        transforms.CenterCrop(224),
+        transforms.RandomHorizontalFlip(),
+    ]
+    test_trsf = [
+        # transforms.Resize(32),
+        transforms.CenterCrop(224),
+    ]
+    common_trsf = [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+
+    class_order = np.arange(200).tolist()
+
+    def download_data(self):
+        # assert 0, "You should specify the folder of your dataset"
+        train_dir = "../datasets/tiny-imagenet-200/train/"
+        test_dir = "../datasets/tiny-imagenet-200/val/"
+
+        train_dset = datasets.ImageFolder(train_dir)
+        test_dset = datasets.ImageFolder(test_dir)
+
+        self.train_data, self.train_targets = split_images_labels(train_dset.imgs)
+        self.test_data, self.test_targets = split_images_labels(test_dset.imgs)
 class iSplitMNIST(object):
 
     use_path = True

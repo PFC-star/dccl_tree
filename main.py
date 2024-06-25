@@ -31,12 +31,13 @@ def setup_parser():
     parser.add_argument('--model_name','-model', type=str, default=None, required=True)
     parser.add_argument('--convnet_type','-net', type=str, default='resnet32') # cosine_resnet32 resnet32
     parser.add_argument('--prefix','-p',type=str, help='exp type', default='benchmark', choices=['benchmark', 'fair', 'auc'])
-    parser.add_argument('--postfix', '-post', type=str, help='exp type', default='new_shu')
+    parser.add_argument('--postfix', '-post', type=str, help='exp type', default='z')
     parser.add_argument('--device','-d', nargs='+', type=int, default=[0,1])
     parser.add_argument('--debug', action="store_true")
     parser.add_argument('--skip', action="store_true",)
     parser.add_argument('--domainTrans','-dt',type=bool, default=False)
-    parser.add_argument('--scenario', '-so',  type=str, default='none')
+    parser.add_argument('--scenario', '-so',  type=str, default='dccl')
+    parser.add_argument('--topk', '-tk', type=int, default=1)
     return parser
 
 

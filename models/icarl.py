@@ -36,7 +36,7 @@ from utils.toolkit import save_model_ing,loadBestModel
 class iCaRL(BaseLearner):
     def __init__(self, args):
         super().__init__(args)
-        self._network = IncrementalNet(args["convnet_type"], False)
+        self._network = IncrementalNet(args["convnet_type"], True)
         self.args = args
         
     def after_task(self,data_manager,task):
@@ -68,8 +68,10 @@ class iCaRL(BaseLearner):
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
-                if self.args['dataset'] == 'domainNet':
-                    self._known_classes = self._known_classes - 50
+                if self.args['dataset'] == 'imagenet200':
+                    self._known_classes = self._known_classes - 100
+                # if self.args['dataset'] == 'domainNet':
+                #     self._known_classes = self._known_classes - 50
 
 
 
@@ -111,13 +113,17 @@ class iCaRL(BaseLearner):
             domainTrans=self.domainTrans,
             domain_type=self.domain[self._cur_task],
         )
+        self.train_loader = DataLoader(
+            train_dataset, batch_size=self.args['batch_size'], shuffle=True, num_workers=self.args['num_workers']
+        )
+
         self.test_loader = DataLoader(
             test_dataset, batch_size=self.args['batch_size'], shuffle=False, num_workers=self.args['num_workers']
         )
 
         if len(self._multiple_gpus) > 1:
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
-        self._train(self.train_loader, self.test_loader,data_manager)
+        self._train(self.train_loader, self.test_loader,data_manager=data_manager)
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
 
@@ -133,9 +139,9 @@ class iCaRL(BaseLearner):
                 lr=self.args['init_lr'],
                 weight_decay=self.args['init_weight_decay'],
             )
-            # scheduler = optim.lr_scheduler.MultiStepLR(
-            #     optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
-            #     )
+            scheduler = optim.lr_scheduler.MultiStepLR(
+                optimizer=optimizer, milestones=self.args['init_milestones'], gamma=self.args['init_lr_decay']
+                )
             # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             #     optimizer,
             #     T_max=self.args['init_epoch'],
@@ -150,7 +156,7 @@ class iCaRL(BaseLearner):
                 if len(self._multiple_gpus) > 1:
                     self._network = nn.DataParallel(self._network, self._multiple_gpus)
             else:
-                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=None)
+                self._init_train(train_loader, test_loader, optimizer,data_manager=data_manager, scheduler=scheduler)
         else:
             optimizer = optim.SGD(
                 self._network.parameters(),
@@ -167,7 +173,7 @@ class iCaRL(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -234,6 +240,11 @@ class iCaRL(BaseLearner):
             #                      "model_params.pt")
             _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
                                  "cifar100_50.pt")
+        if self.args['dataset'] == "imagenet200":
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/imagenet200/z/",
+                                 "last47.pt")
         if self.args['dataset'] == "domainNet":
             # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
             #                      "model_params.pt")
@@ -303,7 +314,12 @@ class iCaRL(BaseLearner):
                             self._old_network(inputs)["logits"],
                             self.args["T"],
                         )
-
+                    if self.args['dataset'] == 'imagenet200':
+                        loss_kd = _KD_loss(
+                            logits[:, : self._known_classes + 100],
+                            self._old_network(inputs)["logits"],
+                            self.args["T"],
+                        )
 
                 loss =  loss_kd + loss_clf
 

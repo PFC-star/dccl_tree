@@ -68,6 +68,8 @@ class Finetune(BaseLearner):
                     self._known_classes = self._known_classes - 5
                 if self.args['dataset'] == 'cifar100':
                     self._known_classes = self._known_classes - 50
+                if self.args['dataset'] == 'imagenet200':
+                    self._known_classes = self._known_classes - 100
                 # if self.args['dataset'] == 'domainNet':
                 #     self._known_classes = self._known_classes - 50
 
@@ -165,7 +167,7 @@ class Finetune(BaseLearner):
             # )  # check
             self._update_representation(train_loader, test_loader, optimizer,data_manager, scheduler=None)
 
-    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler):
+    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler):
         prog_bar = tqdm(range(self.args['init_epoch']))
 
         for _, epoch in enumerate(prog_bar):
@@ -219,7 +221,7 @@ class Finetune(BaseLearner):
         # test_acc = self._compute_accuracy(self._network, test_loader)
         # self.save_checkpoint(test_acc)
         # logging.info("Save checkpoint successfully!")
-    def _init_train(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
+    def _init_train_1(self, train_loader, test_loader, optimizer,data_manager, scheduler=None):
         # _path = os.path.join("model_params_finetune_100.pt")
         if self.args['dataset'] == "cifar10":
             # _path = os.path.join("logs/benchmark/cifar10/finetune/0308-13-10-39-411_cifar10_resnet32_2024_B6_Inc1",
@@ -232,6 +234,11 @@ class Finetune(BaseLearner):
             #                      "model_params.pt")
             _path = os.path.join("results/benchmark/cnn_top1/cifar100/last80",
                                  "cifar100_50.pt")
+        if self.args['dataset'] == "imagenet200":
+            # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
+            #                      "model_params.pt")
+            _path = os.path.join("results/benchmark/cnn_top1/imagenet200/z/",
+                                 "last47.pt")
         if self.args['dataset'] == "domainNet":
             # _path = os.path.join("logs/benchmark/cifar100/finetune/0309-18-46-53-848_cifar100_resnet32_2024_B60_Inc10",
             #                      "model_params.pt")
@@ -242,7 +249,7 @@ class Finetune(BaseLearner):
         self._network.module.load_state_dict(torch.load(_path) )
         print("-----Load Model  {}------".format( self._cur_task))
     def _update_representation(self, train_loader, test_loader, optimizer, data_manager,scheduler=None ):
-     
+
 
 
         prog_bar = tqdm(range(self.epochs))
@@ -296,4 +303,4 @@ class Finetune(BaseLearner):
 
             prog_bar.set_description(info)
 
-        logging.info(inf
+        logging.info(info)
